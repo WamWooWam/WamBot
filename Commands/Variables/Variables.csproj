@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <OutputPath>..\Build\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\WamBot.Api\WamBot.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="WamWooWam.Core">
+      <HintPath>..\..\Libraries\WamWooWam.Core\Debug\netstandard2.0\WamWooWam.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="WamWooWam.Core.Serialisation">
+      <HintPath>..\..\Libraries\WamWooWam.Core.Serialisation\Debug\netstandard2.0\WamWooWam.Core.Serialisation.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
