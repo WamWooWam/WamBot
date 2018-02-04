@@ -26,7 +26,7 @@ namespace ModerationCommands
 
             if (user != null)
             {
-                await Context.Channel.DeleteMessagesAsync(messages.Where(u => u.Author.Id == user.Id).Take(no));
+                await Context.Channel.DeleteMessagesAsync(messages.Where(u => u.Author.Id == user.Id).Take(messages.Count() >= no ? no : messages.Count()));
             }
             else
             {
