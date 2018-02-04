@@ -4,7 +4,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <RuntimeIdentifiers>win7-x64;win-arm;linux-arm;</RuntimeIdentifiers>
-    <ApplicationManifest>app1.manifest</ApplicationManifest> 
+    <ApplicationManifest>app1.manifest</ApplicationManifest>
+    <Deterministic>False</Deterministic>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -24,13 +25,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\ConsoleDraw\ConsoleDraw\ConsoleDraw.csproj" />
     <ProjectReference Include="..\WamBot.Api\WamBot.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="ConsoleDraw">
-      <HintPath>..\Libraries\ConsoleDraw\Debug\netstandard2.0\ConsoleDraw.dll</HintPath>
-    </Reference>
     <Reference Include="NAudio">
       <HintPath>..\Libraries\NAudio\Debug\netstandard2.0\NAudio.dll</HintPath>
     </Reference>

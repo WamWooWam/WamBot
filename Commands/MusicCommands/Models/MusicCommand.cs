@@ -18,7 +18,7 @@ namespace MusicCommands.Models
         {
             try
             {
-                if (context.Invoker is DiscordMember memb)
+                if (context.Author is DiscordMember memb)
                 {
                     DiscordVoiceState state = memb?.VoiceState;
                     if (state != null)

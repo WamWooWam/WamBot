@@ -20,7 +20,7 @@ namespace WamCash.Commands
 
         public async Task<CommandResult> Run()
         {
-            DiscordUser user = Context.Invoker;
+            DiscordUser user = Context.Author;
             DiscordEmbedBuilder builder = new DiscordEmbedBuilder()
                 .WithAuthor($"{(user is DiscordMember m ? m.DisplayName : user.Username)} - Bank of Wam", null, user.AvatarUrl);
 

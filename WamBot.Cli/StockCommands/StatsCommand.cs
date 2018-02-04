@@ -1,11 +1,15 @@
 ﻿using DSharpPlus.Entities;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using WamBot.Api;
+using WamWooWam.Core;
 
 namespace WamBot.Cli
 {
@@ -19,23 +23,26 @@ namespace WamBot.Cli
 
         public override Func<int, bool> ArgumentCountPrecidate => x => true;
 
-        public override bool Async => true;
-
         public override Task<CommandResult> RunCommand(string[] args, CommandContext context)
         {
-            DiscordEmbedBuilder builder = context.GetEmbedBuilder("Statistics");
-            builder.AddField("Operating System", RuntimeInformation.OSDescription, true);
-            builder.AddField("Architecture", RuntimeInformation.OSArchitecture.ToString(), true);
-            builder.AddField(".NET", RuntimeEnvironment.GetSystemVersion(), true);
+            Process process = Process.GetCurrentProcess();
+            AssemblyName mainAssembly = Assembly.GetExecutingAssembly().GetName();
 
-            builder.AddField("Ping", $"{context.Client.Ping}ms");
+            DiscordEmbedBuilder builder = context.GetEmbedBuilder("Statistics");
+
+            builder.AddField("Operating System", RuntimeInformation.OSDescription, true);
+            builder.AddField("RAM Usage (Current)", Files.SizeSuffix(process.PrivateMemorySize64), true);
+            builder.AddField("RAM Usage (Peak)", Files.SizeSuffix(process.PeakWorkingSet64), true);
+
+            builder.AddField("Ping", $"{context.Client.Ping}ms", true);
+            builder.AddField("Version", $"{mainAssembly.Version}", true);
+            builder.AddField("Compiled at", new DateTime(2000, 1, 1).AddDays(mainAssembly.Version.Build).AddSeconds(mainAssembly.Version.MinorRevision * 2).ToString(CultureInfo.CurrentCulture), true);
 
             builder.AddField("Guilds", context.Client.Guilds.Count.ToString(), true);
-
             builder.AddField("Total Channels", context.Client.PrivateChannels.Union(context.Client.Guilds.Values.SelectMany(g => g.Channels)).Count().ToString(), true);
             builder.AddField("Total Roles", context.Client.Guilds.Values.SelectMany(g => g.Roles).Count().ToString(), true);
             builder.AddField("Total Emotes", context.Client.Guilds.Values.SelectMany(g => g.Emojis).Count().ToString(), true);
-            builder.AddField("Unique Members", context.Client.Guilds.Values.SelectMany(g => g.Members).Select(m => m.Id).Distinct().Count().ToString(), true);
+            builder.AddField("Total Members", context.Client.Guilds.Sum(g => g.Value.MemberCount).ToString(), true);
 
             builder.AddField("Available Commands", Program.Commands.Count.ToString(), true);
             builder.AddField("Available Parse Extensions", Program.ParseExtensions.Count.ToString(), true);

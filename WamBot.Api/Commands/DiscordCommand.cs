@@ -17,8 +17,6 @@ namespace WamBot.Api
 
         public virtual string Usage => null;
 
-        public virtual bool Async => false;
-
         public virtual Permissions RequiredPermissions => Permissions.SendMessages;
 
         public virtual Permissions? UserPermissions => null;

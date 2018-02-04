@@ -25,9 +25,7 @@ namespace MusicCommands
         public override string[] Aliases => new[] { "join", "connect" };
 
         public override Func<int, bool> ArgumentCountPrecidate => x => x <= 1;
-
-        public override bool Async => true;
-
+        
         public override Permissions RequiredPermissions => base.RequiredPermissions | Permissions.UseVoice;
 
         public override async Task<CommandResult> RunCommand(string[] args, CommandContext context)
@@ -39,7 +37,7 @@ namespace MusicCommands
 
             try
             {
-                if (context.Invoker is DiscordMember memb)
+                if (context.Author is DiscordMember memb)
                 {
                     DiscordVoiceState state = memb.VoiceState;
                     if (state != null)

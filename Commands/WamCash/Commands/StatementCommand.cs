@@ -22,7 +22,7 @@ namespace WamCash.Commands
         {
             using (AccountsContext context = new AccountsContext())
             {
-                if (Context.Invoker is DiscordMember member)
+                if (Context.Author is DiscordMember member)
                 {
                     Account account = await context.Accounts.FindAsync(member.Id);
                     account = await Meta.EnsureAccountAsync(context, member, account);
@@ -34,13 +34,14 @@ namespace WamCash.Commands
                     builder.AddField("Balance", account.Balance.ToString("N2"));
                     decimal balance = account.Balance;
 
-                    foreach (Transaction transaction in account.TransactionHistory.Where(t => (DateTime.Now - t.Time) <= TimeSpan.FromDays(30)).Reverse().Take(12))
+                    foreach (Transaction transaction in account.TransactionHistory.AsEnumerable().Reverse().Take(12))
                     {
                         balance -= transaction.Amount;
                         builder.AddField(transaction.Reason, $"[{transaction.Time.ToString("u")}] W${transaction.Amount:N2}", true);
                         builder.AddField("Balance", $"W${balance:N2}", true);
                     }
 
+                    context.Accounts.Update(account);
                     await channel.SendMessageAsync(embed: builder);
                     return "Your bank statement has been sent. Check your DMs!";
                 }

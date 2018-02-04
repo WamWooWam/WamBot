@@ -28,14 +28,33 @@ namespace MusicCommands
             if (connection.NowPlaying != null)
             {
                 SongModel song = connection.NowPlaying;
-                string songDetails = !string.IsNullOrWhiteSpace(song.Album) && !string.IsNullOrWhiteSpace(song.Artist) ? $"{song.Album} - {song.Artist}" :
-                                !string.IsNullOrWhiteSpace(song.Artist) ? song.Artist :
-                                !string.IsNullOrWhiteSpace(song.Album) ? song.Album : "";
+                StringBuilder str = new StringBuilder();
+                bool album = false;
 
-                builder.AddField(song.Title, $"{(!string.IsNullOrWhiteSpace(songDetails) ? $"{songDetails}\r\n" : "")}Elapsed: {connection.Elapsed.ToString(@"mm\:ss")}/{connection.Total.ToString(@"mm\:ss")}");
-                builder.AddField("Queued by", song.User.Mention);
+                if (!string.IsNullOrWhiteSpace(song.Album))
+                {
+                    album = true;
+                    str.Append(song.Album);
+                }
+                if (!string.IsNullOrWhiteSpace(song.Artist))
+                {
+                    if (album)
+                    {
+                        str.Append(" - ");
+                    }
+                    str.Append(song.Artist);
+                }
 
-                if(File.Exists(connection.NowPlaying.ThumbnailPath))
+                string details = str.ToString();
+                builder.AddField(song.Title, string.IsNullOrWhiteSpace(details) ? "No additional details" : details);
+                if(!string.IsNullOrWhiteSpace(song.Description))
+                {
+                    builder.AddField("Description", song.Description.Length < 256 ? song.Description : song.Description.Substring(0, 252) + "...");
+                }
+                builder.AddField("Elapsed", $"{connection.Elapsed.ToString(@"mm\:ss")}/{(connection.NowPlaying.Duration ?? connection.Total).ToString(@"mm\:ss")}", true);
+                builder.AddField("Queued by", song.User.Mention, true);
+
+                if (File.Exists(connection.NowPlaying.ThumbnailPath))
                 {
                     builder.WithThumbnailUrl($"attachment://{Path.GetFileName(connection.NowPlaying.ThumbnailPath)}");
                     return Task.FromResult(new CommandResult(builder.Build(), connection.NowPlaying.ThumbnailPath));

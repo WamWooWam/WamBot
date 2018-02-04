@@ -19,7 +19,7 @@ namespace ImageCommands.Converters
         public Task<object> Convert(string arg, Type to, CommandContext context)
         {
             string str = arg.TrimStart('#');
-            if (uint.TryParse(str, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint n))
+            if (uint.TryParse(str, NumberStyles.HexNumber, CultureInfo.CurrentCulture, out uint n))
             {
                 var c = System.Drawing.Color.FromArgb((int)n);
                 return Task.FromResult<object>(new Rgba32(c.R, c.G, c.B, c.A));

@@ -8,6 +8,9 @@
 *.user
 *.userosscache
 *.sln.docstates
+
+# Nothin' personal
+*.db
 *.json
 
 # User-specific files (MonoDevelop/Xamarin Studio)

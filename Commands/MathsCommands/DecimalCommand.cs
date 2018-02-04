@@ -21,7 +21,7 @@ namespace MathsCommands
             if (str.StartsWith("0x") || str.Except(new[] { '0', '1' }).Any())
             {
                 str = str.StartsWith("0x") ? str.Substring(2) : str;
-                if(ulong.TryParse(str, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out ulong i))
+                if(ulong.TryParse(str, NumberStyles.AllowHexSpecifier, CultureInfo.CurrentCulture, out ulong i))
                 {
                     return i.ToString();
                 }

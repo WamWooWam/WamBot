@@ -52,13 +52,13 @@ namespace ModerationCommands
 
             if (action == "add")
             {
-                guild.Hackbans.Add(new Hackban(user.Id, Context.Invoker.Id));
+                guild.Hackbans.Add(new Hackban(user.Id, Context.Author.Id));
                 this.SetData(Context.Guild.Id.ToString(), guild);
 
                 DiscordMember member;
                 if ((member = Context.Guild.Members.FirstOrDefault(m => m.Id == user.Id)) != null)
                 {
-                    await member.BanAsync(reason: $"Hackban by {Context.Invoker.Username}#{Context.Invoker.Discriminator} via WamBot");
+                    await member.BanAsync(reason: $"Hackban by {Context.Author.Username}#{Context.Author.Discriminator} via WamBot");
                 }
                 return $"Hackbanned {user.Mention} ({user.Username}#{user.Discriminator})";
             }
@@ -70,7 +70,7 @@ namespace ModerationCommands
                 DiscordBan ban = (await Context.Guild.GetBansAsync()).FirstOrDefault(b => b.User.Id == user.Id);
                 if (ban != null)
                 {
-                    await ban.User.UnbanAsync(Context.Guild, $"Revoked hackban by {Context.Invoker.Username}#{Context.Invoker.Discriminator} via WamBot");
+                    await ban.User.UnbanAsync(Context.Guild, $"Revoked hackban by {Context.Author.Username}#{Context.Author.Discriminator} via WamBot");
                 }
 
                 return $"Removed hackban for {user.Mention} ({user.Username}#{user.Discriminator})";

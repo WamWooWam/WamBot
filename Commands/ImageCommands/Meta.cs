@@ -26,7 +26,7 @@ namespace ImageCommands
 
         public static Rgba32 GetColour(string arg)
         {
-            if (uint.TryParse(arg.TrimStart('#'), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint n))
+            if (uint.TryParse(arg.TrimStart('#'), NumberStyles.HexNumber, CultureInfo.CurrentCulture, out uint n))
             {
                 return new Rgba32((byte)(n >> 16), (byte)(n >> 8 & 255), (byte)(n & 255));
             }

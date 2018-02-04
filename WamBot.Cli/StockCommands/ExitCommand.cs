@@ -17,9 +17,7 @@ namespace WamBot.Cli.StockCommands
         public override string[] Aliases => new[] { "exit", "close", "kys" };
 
         public override Func<int, bool> ArgumentCountPrecidate => x => true;
-
-        public override bool Async => true;
-
+        
         public override async Task<CommandResult> RunCommand(string[] args, CommandContext context)
         {
             try

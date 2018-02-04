@@ -32,7 +32,7 @@ namespace WamCash.Intergration
         {
             using (AccountsContext context = new AccountsContext())
             {
-                Account account = await context.Accounts.FindAsync(ctx.Invoker.Id);
+                Account account = await context.Accounts.FindAsync(ctx.Author.Id);
                 if ((account.Balance - cost) > -300)
                 {
                     try

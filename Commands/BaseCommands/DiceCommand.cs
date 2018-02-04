@@ -45,10 +45,10 @@ namespace BaseCommands
             context.Happiness += 2;
             if (count > 0 && max > 0)
             {
-                if (count < 4096)
+                if (count <= 4096)
                 {
                     StringBuilder builder = new StringBuilder();
-                    builder.Append($"{context.Invoker.Username} rolled {d} and got: ");
+                    builder.Append($"{context.Author.Username} rolled {d} and got: ");
 
                     Parallel.For(1, count, i =>
                     {

@@ -8,6 +8,7 @@ using Microsoft.ApplicationInsights.Extensibility;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -55,6 +56,7 @@ namespace WamBot.Cli
         {
             _ = new ArgumentException(); // fuckin sdk bugs reeeeeeee
 
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfoByIetfLanguageTag("en-gb");
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             AppDomain.CurrentDomain.FirstChanceException += CurrentDomain_FirstChanceException;
 
@@ -176,7 +178,7 @@ namespace WamBot.Cli
             }
         }
 
-        private static void SaveTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        private static void SaveTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             try
             {
@@ -188,7 +190,7 @@ namespace WamBot.Cli
 
         static Random random = new Random();
 
-        private static async void UpdateStatusTimer(object sender, System.Timers.ElapsedEventArgs e)
+        private static async void UpdateStatusTimer(object sender, ElapsedEventArgs e)
         {
             if (Client != null)
             {
@@ -346,6 +348,7 @@ namespace WamBot.Cli
                     Assembly assembly = Assembly.LoadFrom(dllPath);
                     if (assembly != null && assembly.DefinedTypes.Any(t => t.GetInterfaces()?.Contains(typeof(ICommandsAssembly)) == true))
                     {
+                        Debug.WriteLine(dllPath); 
                         _appLogArea.WriteLine($"Searching {Path.GetFileName(dllPath)} for commands.");
                         ICommandsAssembly asm = null;
                         List<DiscordCommand> asmCommands = new List<DiscordCommand>();

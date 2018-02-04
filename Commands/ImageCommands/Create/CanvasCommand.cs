@@ -21,13 +21,13 @@ namespace ImageCommands.Create
 
         public async Task<CommandResult> RunCommand(int width = 300, int height = 300, Rgba32? color = null)
         {
-            if (width <= 8192 * 2 && height <= 8192 * 2)
+            if (width <= 4096 && height <= 4096)
             {
-                if (width > 8192 && height > 8192)
-                {
-                    decimal thing = (((decimal)width + (decimal)height) / 2M) / ushort.MaxValue;
-                    await AccountsIntergration.EnsureBallanceAsync(Context, 4 * thing);
-                }
+                //if (width > 8192 && height > 8192)
+                //{
+                //    decimal thing = (((decimal)width + (decimal)height) / 2M) / ushort.MaxValue;
+                //    await AccountsIntergration.EnsureBallanceAsync(Context, 4 * thing);
+                //}
 
                 if (ImageCommandResult.ImageCache.TryGetValue(Context.Guild.Id, out var oldImage))
                 {

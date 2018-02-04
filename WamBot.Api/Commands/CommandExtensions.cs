@@ -100,7 +100,8 @@ namespace WamBot.Api
 
         private static T GetFromDictionary<T>(string name, Dictionary<string, object> data)
         {
-            if (data.TryGetValue(name, out var result))
+            object result = null;
+            if (data?.TryGetValue(name, out result) == true)
             {
                 if (result is JToken j)
                 {

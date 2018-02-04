@@ -36,8 +36,6 @@ namespace WamBot.Api
 
         protected CommandContext Context { get; private set; }
 
-        public override bool Async => true;
-
         public override sealed Func<int, bool> ArgumentCountPrecidate => x =>
         {
             var methods = GetMethods();
@@ -197,7 +195,14 @@ namespace WamBot.Api
                         }
                     }
 
-                    return lastException != null ? $"Something looks wrong there! \"{lastException.Item1.Name}\" failed to parse!" : "Unable to find applicable command method for given arguments.";
+                    if (lastException != null)
+                    {
+                        throw new BadArgumentsException();
+                    }
+                    else
+                    {
+                        return "Unable to find applicable command method for given arguments.";
+                    }
                 }
                 else
                 {

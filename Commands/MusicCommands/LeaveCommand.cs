@@ -21,8 +21,6 @@ namespace MusicCommands
 
         public override Func<int, bool> ArgumentCountPrecidate => x => x <= 1;
 
-        public override bool Async => true;
-
         public override async Task<CommandResult> RunVoiceCommand(string[] args, CommandContext context, ConnectionModel connection)
         {
             connection.Connected = false;

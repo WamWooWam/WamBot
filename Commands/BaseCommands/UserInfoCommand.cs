@@ -40,10 +40,10 @@ namespace BaseCommands
                 builder.AddField("Id", $"{user.Id}", true);
                 builder.AddField("Mention", $"\\{user.Mention}", true);
 
-                builder.AddField("Joined Discord", user.CreationTimestamp.UtcDateTime.ToString(CultureInfo.InvariantCulture), memb != null);
+                builder.AddField("Joined Discord", user.CreationTimestamp.UtcDateTime.ToString(CultureInfo.CurrentCulture), memb != null);
                 if (memb != null)
                 {
-                    builder.AddField("Joined Server", memb.JoinedAt.UtcDateTime.ToString(CultureInfo.InvariantCulture), true);
+                    builder.AddField("Joined Server", memb.JoinedAt.UtcDateTime.ToString(CultureInfo.CurrentCulture), true);
                 }
 
                 int guilds = Context.Client.Guilds.AsParallel().Where(g => g.Value.Members.Any(m => m.Id == user.Id)).Count();

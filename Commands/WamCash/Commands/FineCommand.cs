@@ -33,7 +33,8 @@ namespace WamCash.Commands
                         account = await Meta.EnsureAccountAsync(context, user, account);
 
                         account.Balance -= amount;
-                        account.TransactionHistory.Add(new Transaction(Context.Invoker.Id, -amount, $"Fine by {Context.Invoker.Id}"));
+                        account.TransactionHistory.Add(new Transaction(Context.Author.Id, -amount, $"Fine by {Context.Author.Id}"));
+                        context.Accounts.Update(account);
                         await context.SaveChangesAsync();
 
                         return $"Fined {user.Username} W${amount:N2}";

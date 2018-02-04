@@ -31,6 +31,7 @@ namespace WamCash.Commands
                 account.TransactionHistory.Add(new Transaction(0, bal - account.Balance, "hax"));
                 account.Balance = bal;
 
+                context.Accounts.Update(account);
                 await context.SaveChangesAsync();
             }
 

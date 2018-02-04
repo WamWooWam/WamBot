@@ -184,16 +184,8 @@ namespace WamBot.Cli
                 {
                     if (CheckPermissions(author, channel, command))
                     {
-                        if (command.Async)
-                        {
-                            _appLogArea.WriteLine($"[{message.Channel.Guild.Name ?? message.Channel.Name}] Running command \"{command.Name}\" asynchronously.");
-                            new Task(async () => await RunCommandAsync(message, author, channel, commandSegments, command, start)).Start();
-                        }
-                        else
-                        {
-                            _appLogArea.WriteLine($"[{message.Channel.Guild.Name ?? message.Channel.Name}] Running command \"{command.Name}\" synchronously.");
-                            await RunCommandAsync(message, author, channel, commandSegments, command, start);
-                        }
+                        _appLogArea.WriteLine($"[{message.Channel.Guild.Name ?? message.Channel.Name}] Running command \"{command.Name}\" asynchronously.");
+                        new Task(async () => await RunCommandAsync(message, author, channel, commandSegments, commandAlias, command, start)).Start();
                     }
                     else
                     {
@@ -211,13 +203,18 @@ namespace WamBot.Cli
             }
             else
             {
-                _appLogArea.WriteLine($"[{message.Channel.Guild.Name ?? message.Channel.Name}] {command.Name} does not take {commandSegments.Count()} arguments.");
-                TelemetryClient?.TrackRequest(GetRequestTelemetry(author, channel, command, start, "400", false));
+                await HandleBadRequest(message, author, channel, commandSegments, commandAlias, command, start);
+            }
+        }
 
-                if (command.Usage != null)
-                {
-                    await SendTemporaryMessage(message, author, channel, $"```\r\n{commandAlias} usage: {Config.Prefix}{commandAlias} [{command.Usage}]\r\n```");
-                }
+        private static async Task HandleBadRequest(DiscordMessage message, DiscordUser author, DiscordChannel channel, IEnumerable<string> commandSegments, string commandAlias, DiscordCommand command, DateTimeOffset start)
+        {
+            _appLogArea.WriteLine($"[{message.Channel.Guild.Name ?? message.Channel.Name}] {command.Name} does not take {commandSegments.Count()} arguments.");
+            TelemetryClient?.TrackRequest(GetRequestTelemetry(author, channel, command, start, "400", false));
+
+            if (command.Usage != null)
+            {
+                await SendTemporaryMessage(message, author, channel, $"```\r\n{commandAlias} usage: {Config.Prefix}{commandAlias} [{command.Usage}]\r\n```");
             }
         }
 
@@ -231,27 +228,16 @@ namespace WamBot.Cli
             return tel;
         }
 
-        private static async Task RunCommandAsync(DiscordMessage message, DiscordUser author, DiscordChannel channel, IEnumerable<string> commandSegments, DiscordCommand command, DateTimeOffset start)
+        private static async Task RunCommandAsync(DiscordMessage message, DiscordUser author, DiscordChannel channel, IEnumerable<string> commandSegments, string commandAlias, DiscordCommand command, DateTimeOffset start)
         {
             bool success = true;
             try
             {
-                command = InstantateDiscordCommand(command.GetType());
                 await channel.TriggerTypingAsync();
-
+                command = InstantateDiscordCommand(command.GetType());
                 HappinessData.TryGetValue(author.Id, out sbyte h);
 
-                var context = new CommandContext()
-                {
-                    Message = message,
-                    Invoker = author,
-                    Client = Client,
-                    Prefix = Config.Prefix,
-                    Log = new LoggerCallback(l => _appLogArea.WriteLine(l)),
-                    Arguments = commandSegments.ToArray(),
-                    Happiness = h
-                };
-
+                CommandContext context = new CommandContext(commandSegments.ToArray(), message, Client) { Happiness = h };
                 CommandResult result = await command.RunCommand(commandSegments.ToArray(), context);
 
                 _appLogArea.WriteLine($"[{message.Channel.Guild.Name ?? message.Channel.Name}] \"{command.Name}\" returned ReturnType.{result.ReturnType}.");
@@ -311,12 +297,16 @@ namespace WamBot.Cli
 
                 HappinessData[author.Id] = (sbyte)((int)(context.Happiness).Clamp(sbyte.MinValue, sbyte.MaxValue));
             }
+            catch(BadArgumentsException)
+            {
+                await HandleBadRequest(message, author, channel, commandSegments, commandAlias, command, start);
+            }
             catch (CommandException ex)
             {
                 await channel.SendMessageAsync(ex.Message);
                 TelemetryClient?.TrackRequest(GetRequestTelemetry(author, channel, command, start, "400", false));
             }
-            catch(ArgumentOutOfRangeException)
+            catch (ArgumentOutOfRangeException)
             {
                 await channel.SendMessageAsync("Hey there! That's gonna cause some issues, no thanks!!");
                 TelemetryClient?.TrackRequest(GetRequestTelemetry(author, channel, command, start, "400", false));
