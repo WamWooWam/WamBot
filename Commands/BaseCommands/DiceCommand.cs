@@ -38,7 +38,7 @@ namespace BaseCommands
             }
 
             return "Hey! Something's very wrong with your input! Try again.";
-        }       
+        }
 
         private string RunDice(CommandContext context, string d, int count, int max)
         {
@@ -50,10 +50,10 @@ namespace BaseCommands
                     StringBuilder builder = new StringBuilder();
                     builder.Append($"{context.Author.Username} rolled {d} and got: ");
 
-                    Parallel.For(1, count, i =>
+                    for (int i = 0; i < count - 1; i++)
                     {
                         builder.Append($"{_random.Next(max)}, ");
-                    });
+                    }
 
                     builder.Append(_random.Next(max));
                     builder.Append("!");
