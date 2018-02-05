@@ -105,17 +105,19 @@ namespace WamCash
 
         private async void SaveAsync()
         {
-            foreach (var thing in _store.Keys)
+            using (AccountsContext context = new AccountsContext())
             {
-                using (AccountsContext context = new AccountsContext())
+                foreach (var thing in _store.Keys)
                 {
-                    Account account = context.Accounts.Find(thing);
+                    Account account = await context.Accounts.FindAsync(thing);
                     account = EnsureAccount(context, await _client.GetUserAsync(thing), account);
 
                     decimal ammount = _store[thing];
                     account.TransactionHistory.Add(new Transaction(0, ammount, "Hourly payment."));
                     account.Balance += ammount;
                 }
+
+                await context.SaveChangesAsync();
             }
 
             _store.Clear();
@@ -145,14 +147,14 @@ namespace WamCash
                     _store.Add(e.Author.Id, add);
                 }
             }
-            else if (e.Channel.IsPrivate && (e.Author.Id == 401524353528889344 || e.Author.Id == 404765717221605376))
-            {
-                try
-                {
-                    JObject jObject = JObject.Parse(e.Message.Content);
-                }
-                catch { }
-            }
+            //else if (e.Channel.IsPrivate && (e.Author.Id == 401524353528889344 || e.Author.Id == 404765717221605376))
+            //{
+            //    try
+            //    {
+            //        JObject jObject = JObject.Parse(e.Message.Content);
+            //    }
+            //    catch { }
+            //}
             return Task.CompletedTask;
         }
     }
