@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using WamBot.Api;
+using WamBot.Core;
 
 namespace WamBot.Cli.StockCommands
 {
@@ -22,12 +23,13 @@ namespace WamBot.Cli.StockCommands
         public Task<CommandResult> Run(string alias = null)
         {
             DiscordEmbedBuilder embedBuilder = Context.GetEmbedBuilder();
-            embedBuilder.WithFooter($"Lovingly made by @{Context.Client.CurrentApplication.Owner.Username}#{Context.Client.CurrentApplication.Owner.Discriminator} using D#+. My current prefix is `{Program.Config.Prefix}`.", Context.Client.CurrentApplication.Owner.AvatarUrl);
+            var botContext = (BotContext)Context.AdditionalData["botContext"];
+            embedBuilder.WithFooter($"Lovingly made by @{Context.Client.CurrentApplication.Owner.Username}#{Context.Client.CurrentApplication.Owner.Discriminator} using D#+. My current prefix is `{botContext.Config.Prefix}`.", Context.Client.CurrentApplication.Owner.AvatarUrl);
 
             if (alias == null)
             {
                 embedBuilder.WithAuthor("Listing Command Categories - WamBot 3.0.0", icon_url: Context.Client.CurrentApplication.Icon);
-                foreach (var asm in Program.AssemblyCommands)
+                foreach (var asm in (botContext.AssemblyCommands))
                 {
                     IEnumerable<DiscordCommand> availableCommands = GetAvailableCommands(asm.Value);
                     if (availableCommands.Any())
@@ -41,7 +43,7 @@ namespace WamBot.Cli.StockCommands
             }
             else
             {
-                DiscordCommand command = GetAvailableCommands(Program.Commands).FirstOrDefault(c => c.Aliases.Contains(alias.ToLower().Trim()));
+                DiscordCommand command = GetAvailableCommands(botContext.Commands).FirstOrDefault(c => c.Aliases.Contains(alias.ToLower().Trim()));
                 if (command != null)
                 {
                     embedBuilder.WithAuthor($"{command.Name} - WamBot 3.0.0", icon_url: Context.Client.CurrentApplication.Icon);
@@ -49,12 +51,12 @@ namespace WamBot.Cli.StockCommands
                     embedBuilder.AddField("Aliases", string.Join(", ", command.Aliases), true);
                     if (command.Usage != null)
                     {
-                        embedBuilder.AddField("Usage", $"```cs\r\n{Program.Config.Prefix}{command.Aliases.First()} {command.Usage}\r\n```");
+                        embedBuilder.AddField("Usage", $"```cs\r\n{botContext.Config.Prefix}{command.Aliases.First()} {command.Usage}\r\n```");
                     }
                 }
                 else
                 {
-                    var asm = Program.AssemblyCommands.FirstOrDefault(a => a.Key.Name.ToLower().Trim() == alias.ToLower().Trim());
+                    var asm = botContext.AssemblyCommands.FirstOrDefault(a => a.Key.Name.ToLower().Trim() == alias.ToLower().Trim());
                     if (asm.Value != null && asm.Key != null)
                     {
                         IEnumerable<DiscordCommand> availableCommands = GetAvailableCommands(asm.Value);
@@ -74,7 +76,7 @@ namespace WamBot.Cli.StockCommands
                     }
                     else
                     {
-                        embedBuilder.AddField("Command not found.", $"That command doesn't seem to exist, or you don't have permission to run it! Run `{Program.Config.Prefix}help` for a list of all commands!");
+                        embedBuilder.AddField("Command not found.", $"That command doesn't seem to exist, or you don't have permission to run it! Run `{botContext.Config.Prefix}help` for a list of all commands!");
                     }
                 }
             }
@@ -90,8 +92,8 @@ namespace WamBot.Cli.StockCommands
                 current = current.Where(c => !c.HasAttribute<OwnerAttribute>());
             }
 
-            current = current.Where(c => Program.CheckPermissions(Context.Message.Author, Context.Channel, c));
-            current = current.Where(c => Program.CheckPermissions(Context.Guild?.CurrentMember ?? Context.Client.CurrentUser, Context.Channel, c));
+            current = current.Where(c => Core.InternalTools.CheckPermissions(Context.Client, Context.Message.Author, Context.Channel, c));
+            current = current.Where(c => Core.InternalTools.CheckPermissions(Context.Client, Context.Guild?.CurrentMember ?? Context.Client.CurrentUser, Context.Channel, c));
 
             current = current.OrderBy(c => c.Name);
 

@@ -1,7 +1,9 @@
 ﻿using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using WamBot.Api.Data;
@@ -14,6 +16,7 @@ namespace WamBot.Api
         private TaskCompletionSource<DiscordMessage> _replyCompletionSource;
         private DiscordClient _client;
         private int _happiness;
+        internal ILogger _logger;
 
         internal CommandContext(string[] args, DiscordMessage msg, DiscordClient client)
         {
@@ -56,6 +59,8 @@ namespace WamBot.Api
             internal set => _client = value;
         }
 
+        public Dictionary<string, object> AdditionalData { get; private set; } = new Dictionary<string, object>();
+
         /// <summary>
         /// The bot's current happiness, will be synched when command returns.
         /// </summary>
@@ -72,8 +77,29 @@ namespace WamBot.Api
         public ChannelData ChannelData { get; internal set; }
         public UserData UserData { get; internal set; }
 
-        public void Log(string str, LogLevel level = LogLevel.Info, string application = "Commands") =>
-            _client.DebugLogger.LogMessage(level, application, str, DateTime.Now);
+        public void Log(string str, DSharpPlus.LogLevel level = DSharpPlus.LogLevel.Info, Exception ex = null)
+        {
+            switch (level)
+            {
+                case DSharpPlus.LogLevel.Debug:
+                    _logger.LogDebug(str, new object[] { });
+                    break;
+                case DSharpPlus.LogLevel.Info:
+                    _logger.LogInformation(str, new object[] { });
+                    break;
+                case DSharpPlus.LogLevel.Warning:
+                    _logger.LogWarning(str, new object[] { });
+                    break;
+                case DSharpPlus.LogLevel.Error:
+                    _logger.LogError(ex, str, new object[] { });
+                    break;
+                case DSharpPlus.LogLevel.Critical:
+                    _logger.LogCritical(str, new object[] { });
+                    break;
+                default:
+                    break;
+            }
+        }
 
         public Task<DiscordMessage> ReplyAsync(string content = null, bool tts = false, DiscordEmbed emb = null) =>
             Message.Channel.SendMessageAsync(content, tts, emb);

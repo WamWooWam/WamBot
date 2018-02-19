@@ -1,9 +1,11 @@
 ﻿using DSharpPlus.Entities;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace WamBot.Api
 {
@@ -60,7 +62,7 @@ namespace WamBot.Api
             return param.IsDefined(typeof(ParamArrayAttribute), false);
         }
 
-        public static void RegisterPatameterParseExtension(IParamConverter parseExtension) => ParameterParseHelpers.Add(parseExtension);
+        internal static void RegisterPatameterParseExtension(IParamConverter parseExtension) => ParameterParseHelpers.Add(parseExtension);
 
         public static bool HasAttribute<T>(this object o) where T : Attribute
         {
@@ -83,6 +85,19 @@ namespace WamBot.Api
 
             return t.GetCustomAttributes(true).FirstOrDefault(a => a is T) as T;
         }
+
+        public static async Task<T> FindOrCreateAsync<T>(this DbSet<T> set, object key, Func<T> newPrecidate) where T : class
+        {
+            T t = await set.FindAsync(key);
+            if (t == null)
+            {
+                t = newPrecidate();
+                set.Add(t);
+            }
+
+            return t;
+        }
+
     }
 
     public class MemberEquality : IEqualityComparer<DiscordMember>

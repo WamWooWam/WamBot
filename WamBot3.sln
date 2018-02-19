@@ -1,13 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27130.2024
+VisualStudioVersion = 15.0.27130.2027
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WamBot.Api", "WamBot.Api\WamBot.Api.csproj", "{79967020-E714-4490-BF57-D3BA565CE57A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Commands", "Commands", "{46927165-A60A-43C5-90C1-D79448642828}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WamBot", "WamBot.Cli\WamBot.csproj", "{1FCF04AF-A03E-469A-9AEA-C72178685AEE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WamBot.Core", "WamBot.Cli\WamBot.Core.csproj", "{1FCF04AF-A03E-469A-9AEA-C72178685AEE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BaseCommands", "Commands\BaseCommands\BaseCommands.csproj", "{64A7D2DC-9DF9-4A3D-A994-5C9A849417E2}"
 EndProject
@@ -36,6 +36,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{00D39250-B50E-4DE2-AB31-3075DA8BAD3D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleDraw", "..\ConsoleDraw\ConsoleDraw\ConsoleDraw.csproj", "{0E45E34D-0D92-4A38-BF16-F5EB6C373C0A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WamBot", "WamBot\WamBot.csproj", "{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -191,6 +193,18 @@ Global
 		{0E45E34D-0D92-4A38-BF16-F5EB6C373C0A}.Release|x64.Build.0 = Release|Any CPU
 		{0E45E34D-0D92-4A38-BF16-F5EB6C373C0A}.Release|x86.ActiveCfg = Release|Any CPU
 		{0E45E34D-0D92-4A38-BF16-F5EB6C373C0A}.Release|x86.Build.0 = Release|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Debug|x64.Build.0 = Debug|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Debug|x86.Build.0 = Debug|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Release|Any CPU.Build.0 = Release|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Release|x64.ActiveCfg = Release|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Release|x64.Build.0 = Release|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Release|x86.ActiveCfg = Release|Any CPU
+		{34ECD2BC-7D3D-4A4E-A035-867AFCAA7864}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

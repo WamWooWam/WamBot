@@ -18,6 +18,9 @@ using WamBot.Cli.StockCommands;
 using WamWooWam.Core.Serialisation;
 using System.Threading;
 using Microsoft.ApplicationInsights.DataContracts;
+using Microsoft.Extensions.Logging;
+using WamBot.Data;
+using WamBot.Api.Data;
 
 namespace WamBot.Cli
 {
@@ -25,6 +28,7 @@ namespace WamBot.Cli
     {
         static DiscordDmChannel _ownerDm;
         static List<ulong> ProcessedMessageIds = new List<ulong>();
+        private static ILoggerFactory _loggerFactory;
 
         private static async Task Client_Ready(ReadyEventArgs e)
         {
@@ -218,84 +222,84 @@ namespace WamBot.Cli
             }
         }
 
-        private static RequestTelemetry GetRequestTelemetry(DiscordUser author, DiscordChannel channel, DiscordCommand command, DateTimeOffset start, string code, bool success)
-        {
-            RequestTelemetry tel = new RequestTelemetry(command?.GetType().Name ?? "N/A", start, DateTimeOffset.Now - start, code, success);
-            tel.Properties.Add("invoker", author.Id.ToString());
-            tel.Properties.Add("channel", channel.Id.ToString());
-            tel.Properties.Add("guild", channel.Guild?.Id.ToString());
-
-            return tel;
-        }
-
         private static async Task RunCommandAsync(DiscordMessage message, DiscordUser author, DiscordChannel channel, IEnumerable<string> commandSegments, string commandAlias, DiscordCommand command, DateTimeOffset start)
         {
             bool success = true;
             try
             {
-                await channel.TriggerTypingAsync();
-                command = InstantateDiscordCommand(command.GetType());
-                HappinessData.TryGetValue(author.Id, out sbyte h);
-
-                CommandContext context = new CommandContext(commandSegments.ToArray(), message, Client) { Happiness = h };
-                CommandResult result = await command.RunCommand(commandSegments.ToArray(), context);
-
-                _appLogArea.WriteLine($"[{message.Channel.Guild.Name ?? message.Channel.Name}] \"{command.Name}\" returned ReturnType.{result.ReturnType}.");
-                if (result.ReturnType != ReturnType.None)
+                using (WamBotContext dbContext = new WamBotContext())
                 {
-                    if (result.ReturnType == ReturnType.Text && result.ResultText.Length > 2000)
-                    {
-                        for (int i = 0; i < result.ResultText.Length; i += 1993)
-                        {
-                            string str = result.ResultText.Substring(i, Math.Min(1993, result.ResultText.Length - i));
-                            if (result.ResultText.StartsWith("```") && !str.StartsWith("```"))
-                            {
-                                str = "```" + str;
-                            }
-                            if (result.ResultText.EndsWith("```") && !str.EndsWith("```"))
-                            {
-                                str = str + "```";
-                            }
+                    await channel.TriggerTypingAsync();
+                    command = InstantateDiscordCommand(command.GetType());
+                    HappinessData.TryGetValue(author.Id, out sbyte h);
 
-                            _appLogArea.WriteLine($"Chunking message to {str.Length} chars");
-                            await channel.SendMessageAsync(str);
-
-                            await Task.Delay(2000);
-                        }
-                    }
-                    else
+                    CommandContext context = new CommandContext(commandSegments.ToArray(), message, Client)
                     {
-                        if (!string.IsNullOrWhiteSpace(result.Attachment))
+                        Happiness = h,
+                        _logger = _loggerFactory.CreateLogger("Commands"),
+                        UserData = await dbContext.Users.FindOrCreateAsync(author.Id, () => new UserData(author))
+                    };
+                    CommandResult result = await command.RunCommand(commandSegments.ToArray(), context);
+
+                    _appLogArea.WriteLine($"[{message.Channel.Guild.Name ?? message.Channel.Name}] \"{command.Name}\" returned ReturnType.{result.ReturnType}.");
+                    if (result.ReturnType != ReturnType.None)
+                    {
+                        if (result.ReturnType == ReturnType.Text && result.ResultText.Length > 2000)
                         {
-                            await channel.SendFileAsync(result.Attachment, result.ResultText, embed: result.ResultEmbed);
-                        }
-                        else if (result.Stream != null || result.ReturnType == ReturnType.File)
-                        {
-                            if (result.Stream.Length <= 8 * 1024 * 1024)
+                            for (int i = 0; i < result.ResultText.Length; i += 1993)
                             {
-                                await channel.SendFileAsync(result.Stream, result.FileName, result.ResultText, false, result.ResultEmbed);
-                            }
-                            else
-                            {
-                                await channel.SendMessageAsync("This command has resulted in an attachment that is over 8MB in size and cannot be sent.");
+                                string str = result.ResultText.Substring(i, Math.Min(1993, result.ResultText.Length - i));
+                                if (result.ResultText.StartsWith("```") && !str.StartsWith("```"))
+                                {
+                                    str = "```" + str;
+                                }
+                                if (result.ResultText.EndsWith("```") && !str.EndsWith("```"))
+                                {
+                                    str = str + "```";
+                                }
+
+                                _appLogArea.WriteLine($"Chunking message to {str.Length} chars");
+                                await channel.SendMessageAsync(str);
+
+                                await Task.Delay(2000);
                             }
                         }
                         else
                         {
-                            await channel.SendMessageAsync(result.ResultText, embed: result.ResultEmbed);
+                            if (!string.IsNullOrWhiteSpace(result.Attachment))
+                            {
+                                await channel.SendFileAsync(result.Attachment, result.ResultText, embed: result.ResultEmbed);
+                            }
+                            else if (result.Stream != null || result.ReturnType == ReturnType.File)
+                            {
+                                if (result.Stream.Length <= 8 * 1024 * 1024)
+                                {
+                                    await channel.SendFileAsync(result.Stream, result.FileName, result.ResultText, false, result.ResultEmbed);
+                                }
+                                else
+                                {
+                                    await channel.SendMessageAsync("This command has resulted in an attachment that is over 8MB in size and cannot be sent.");
+                                }
+                            }
+                            else
+                            {
+                                await channel.SendMessageAsync(result.ResultText, embed: result.ResultEmbed);
+                            }
                         }
                     }
+
+
+                    RequestTelemetry request = GetRequestTelemetry(author, channel, command, start, success ? "200" : "500", success);
+                    foreach (var pair in result.InsightsData)
+                    {
+                        request.Properties.Add(pair);
+                    }
+
+                    TelemetryClient?.TrackRequest(request);
+
+                    HappinessData[author.Id] = (sbyte)((int)(context.Happiness).Clamp(sbyte.MinValue, sbyte.MaxValue));
+
                 }
-
-                RequestTelemetry request = GetRequestTelemetry(author, channel, command, start, success ? "200" : "500", success);
-                foreach (var pair in result.InsightsData)
-                {
-                    request.Properties.Add(pair);
-                }
-
-                TelemetryClient?.TrackRequest(request);
-
-                HappinessData[author.Id] = (sbyte)((int)(context.Happiness).Clamp(sbyte.MinValue, sbyte.MaxValue));
             }
             catch(BadArgumentsException)
             {
@@ -347,85 +351,6 @@ namespace WamBot.Cli
             }
         }
 
-        internal static bool CheckPermissions(DiscordUser author, DiscordChannel channel, DiscordCommand command)
-        {
-            bool go = true;
-
-            if (command.HasAttribute<OwnerAttribute>())
-            {
-                if (author.Id == Client.CurrentApplication.Owner.Id || author.Id == Client.CurrentUser.Id)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-
-            if (command.HasAttribute<RequiresGuildAttribute>() && channel.IsPrivate)
-            {
-                return false;
-            }
-
-            if (author is DiscordMember memb)
-            {
-                Permissions p = memb.PermissionsIn(channel);
-                go = p.HasFlag((memb.Id != Client.CurrentUser.Id ? command.UserPermissions : command.BotPermissions) ?? command.RequiredPermissions) || p.HasFlag(Permissions.Administrator);
-            }
-            else
-            {
-                go = true;
-            }
-
-            return go;
-        }
-
-        private static async Task SendWelcomeMessage(DiscordGuild g)
-        {
-            if (!Config.SeenGuilds.Contains(g.Id))
-            {
-                DiscordChannel channel = await GetFirstChannelAsync(g);
-
-                if (channel != null)
-                {
-                    await channel.SendMessageAsync("Welcome to WamBot!");
-                    await channel.SendMessageAsync("Thank you for adding WamBot to your server! Here's a few quick tips to get you started.");
-                    await channel.SendMessageAsync($"Use `{Config.Prefix}help` for a list of available commands. To get info on when commands are added or removed, set an announements channel with `{Config.Prefix}announce`.");
-                    await channel.SendMessageAsync($"For more information, visit http://wamwoowam.co.uk/projects/wambot/.");
-                }
-
-                Config.SeenGuilds.Add(g.Id);
-            }
-        }
-
-        private static async Task<DiscordChannel> GetFirstChannelAsync(DiscordGuild g)
-        {
-            var channels = (await g.GetChannelsAsync())
-                .Where(c => c.Type == ChannelType.Text)
-                .OrderBy(c => c.Position);
-
-            DiscordChannel channel =
-                channels.FirstOrDefault(c => c.Name.ToLowerInvariant().Contains("general") && CanSendMessages(g, c)) ??
-                channels.FirstOrDefault(c => CanSendMessages(g, c));
-            return channel;
-        }
-
-        private static bool CanSendMessages(DiscordGuild g, DiscordChannel c)
-        {
-            return c.PermissionsFor(g.CurrentMember).HasPermission(Permissions.SendMessages);
-        }
-
-        private static async Task SendTemporaryMessage(DiscordMessage m, DiscordUser u, DiscordChannel c, string mess, int timeout = 5_000)
-        {
-            await Task.Yield();
-            new Task(async () =>
-            {
-                DiscordMessage message = await c.SendMessageAsync(mess);
-                await Task.Delay(timeout);
-                await message.DeleteAsync();
-            }).Start();
-        }
 
         private static void ManageException(DiscordMessage message, DiscordUser author, DiscordChannel channel, Exception ex, DiscordCommand command)
         {
@@ -463,31 +388,7 @@ namespace WamBot.Cli
                     catch { }
                 }).Start();
             }
-        }
-
-        private static DiscordCommand InstantateDiscordCommand(Type type)
-        {
-            DiscordCommand command = null;
-            IEnumerable<CommandAttribute> attributes = type.GetCustomAttributes<CommandAttribute>(true);
-
-            if (!attributes.Any())
-            {
-                command = (DiscordCommand)Activator.CreateInstance(type);
-            }
-            else
-            {
-                List<object> commandParameters = new List<object>();
-
-                if (attributes.Any(a => a.GetType() == typeof(HttpClientAttribute)))
-                {
-                    commandParameters.Add(_httpClient);
-                }
-
-                command = (DiscordCommand)Activator.CreateInstance(type, commandParameters.ToArray());
-            }
-
-            return command;
-        }
+        }       
 
     }
 }

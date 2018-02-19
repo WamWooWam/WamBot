@@ -10,6 +10,6 @@ namespace WamBot.Api.Data
         [Key]
         public ulong Id { get; set; }
 
-        public List<string> Variables { get; set; }
+        //public List<string> Variables { get; set; }
     }
 }

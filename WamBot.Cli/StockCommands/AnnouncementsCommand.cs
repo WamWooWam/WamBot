@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using WamBot.Api;
+using WamBot.Core;
 
 namespace WamBot.Cli.StockCommands
 {
@@ -29,7 +30,7 @@ namespace WamBot.Cli.StockCommands
                 channel = channel ?? Context.Channel;
                 if (channel != null)
                 {
-                    Program.Config.AnnouncementChnanels[Context.Guild.Id] = channel.Id;
+                    ((BotContext)Context.AdditionalData["botContext"]).Config.AnnouncementChnanels[Context.Guild.Id] = channel.Id;
                     await channel.SendMessageAsync("Announcements configured for this channel! WamBot will periodically announce new features and information here.");
                     return CommandResult.Empty;
                 }
@@ -40,7 +41,7 @@ namespace WamBot.Cli.StockCommands
             }
             else
             {
-                Program.Config.AnnouncementChnanels.Remove(Context.Guild.Id);
+                ((BotContext)Context.AdditionalData["botContext"]).Config.AnnouncementChnanels.Remove(Context.Guild.Id);
                 return "Announcements disabled.";
             }
         }

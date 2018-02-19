@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using WamBot.Api;
+using WamBot.Data;
 using WamCash.Commands;
 
 namespace WamCash.Entities
@@ -14,7 +15,10 @@ namespace WamCash.Entities
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlite($"Data Source=Data\\wamcash.db");
+            optionsBuilder
+                .UseLoggerFactory(new LoggerFactory())
+                .EnableSensitiveDataLogging()
+                .UseSqlite($"Data Source=Data\\wamcash.db");
         }
 
         public DbSet<Account> Accounts { get; set; }

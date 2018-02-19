@@ -13,6 +13,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.IO;
 using WamWooWam.Core;
+using System.Collections.Concurrent;
 
 namespace WamCash
 {
@@ -23,7 +24,7 @@ namespace WamCash
         public string Description => "CASH, WONGA, DOLLA DOLLA! Or, well, money.";
 
         private DiscordCommand _anyCommand = new SetBalanceCommand();
-        private Dictionary<ulong, decimal> _store = new Dictionary<ulong, decimal>();
+        private ConcurrentDictionary<ulong, decimal> _store = new ConcurrentDictionary<ulong, decimal>();
         private Timer _timer = new Timer(TimeSpan.FromHours(1).TotalMilliseconds);
         private DiscordClient _client;
 
@@ -144,7 +145,7 @@ namespace WamCash
                 }
                 else
                 {
-                    _store.Add(e.Author.Id, add);
+                    _store.TryAdd(e.Author.Id, add);
                 }
             }
             //else if (e.Channel.IsPrivate && (e.Author.Id == 401524353528889344 || e.Author.Id == 404765717221605376))

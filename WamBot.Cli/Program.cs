@@ -19,6 +19,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using WamBot.Api;
 using WamBot.Cli.Models;
+using WamBot.Data;
 using WamWooWam.Core;
 using WamWooWam.Core.Serialisation;
 
@@ -34,7 +35,7 @@ namespace WamBot.Cli
 
         private static HttpClient _httpClient;
         private static TextArea _dSharpPlusLogArea;
-        private static TextArea _appLogArea;
+        internal static TextArea _appLogArea;
         private static Button _statusButton;
         private static Button _pingArea;
         private static Timer _saveTimer;
@@ -68,11 +69,14 @@ namespace WamBot.Cli
 
             SetupUI(buffer, ext);
 
+            
+
             buffer.Run();
             await Run(buffer);
 
             await Task.Yield();
             ext.BeginEventLoop();
+            
         }
 
         private static void CurrentDomain_FirstChanceException(object sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs e)
@@ -105,6 +109,7 @@ namespace WamBot.Cli
                 Token = Config.Token,
                 LogLevel = LogLevel.Debug
             });
+
             Client.DebugLogger.LogMessageReceived += DebugLogger_LogMessageReceived;
             Client.Ready += Client_Ready;
             Client.MessageCreated += Client_MessageCreated;
@@ -254,6 +259,9 @@ namespace WamBot.Cli
                 Enabled = true,
                 ReadOnly = true
             };
+
+            LoggerFactory.Setup(_appLogArea);
+            _loggerFactory = new LoggerFactory();
 
             _dSharpPlusLogArea = new TextArea()
             {

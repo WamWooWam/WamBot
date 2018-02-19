@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using WamBot.Api;
+using WamBot.Core;
 using WamWooWam.Core;
 
 namespace WamBot.Cli
@@ -27,6 +28,7 @@ namespace WamBot.Cli
         {
             Process process = Process.GetCurrentProcess();
             AssemblyName mainAssembly = Assembly.GetExecutingAssembly().GetName();
+            BotContext botContext = ((BotContext)context.AdditionalData["botContext"]);
 
             DiscordEmbedBuilder builder = context.GetEmbedBuilder("Statistics");
 
@@ -43,9 +45,8 @@ namespace WamBot.Cli
             builder.AddField("Total Roles", context.Client.Guilds.Values.SelectMany(g => g.Roles).Count().ToString(), true);
             builder.AddField("Total Emotes", context.Client.Guilds.Values.SelectMany(g => g.Emojis).Count().ToString(), true);
             builder.AddField("Total Members", context.Client.Guilds.Sum(g => g.Value.MemberCount).ToString(), true);
-
-            builder.AddField("Available Commands", Program.Commands.Count.ToString(), true);
-            builder.AddField("Available Parse Extensions", Program.ParseExtensions.Count.ToString(), true);
+            builder.AddField("Available Commands", botContext.Commands.Count.ToString(), true);
+            builder.AddField("Available Parse Extensions", botContext.ParseExtensions.Count.ToString(), true);
 
             return Task.FromResult<CommandResult>(builder.Build());
         }

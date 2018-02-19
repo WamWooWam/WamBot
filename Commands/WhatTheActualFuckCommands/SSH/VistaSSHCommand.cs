@@ -50,6 +50,7 @@ namespace WhatTheActualFuckCommands.SSH
 
             if (_clientDictionary.TryGetValue(Context.Guild.Id, out var client))
             {
+
                 try
                 {
                     ShellStream str = null;

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using WamBot.Api;
+using WamBot.Core;
 
 namespace WamBot.Cli.StockCommands
 {
@@ -20,7 +21,8 @@ namespace WamBot.Cli.StockCommands
         {
             string announcement = string.Join("\r\n", lines);
             await Context.ReplyAsync(announcement);
-            foreach (ulong id in Program.Config.AnnouncementChnanels.Values)
+            BotContext botContext = ((BotContext)Context.AdditionalData["botContext"]);
+            foreach (ulong id in botContext.Config.AnnouncementChnanels.Values)
             {
                 try
                 {

@@ -29,7 +29,13 @@ namespace WamBot.Api
         {
             foreach (var item in dataCache)
             {
-                File.WriteAllText(Path.Combine(configDataPath, $"{item.Key}.json"), JsonConvert.SerializeObject(item.Value, Formatting.Indented));
+                try
+                {
+                    File.WriteAllText(Path.Combine(configDataPath, $"{item.Key}.json"), JsonConvert.SerializeObject(item.Value, Formatting.Indented));
+                }
+                catch {
+
+                }
             }
         }
 
@@ -79,7 +85,7 @@ namespace WamBot.Api
             if (dataCache.TryGetValue(assemblyName, out dataStore))
             {
                 dataStore[name] = data;
-                //dataCache[assemblyName] = dataStore;
+                dataCache[assemblyName] = dataStore;
             }
             else
             {
