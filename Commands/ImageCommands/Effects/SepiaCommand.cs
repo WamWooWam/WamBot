@@ -6,7 +6,7 @@ using WamBot.Api;
 
 namespace ImageCommands
 {
-    class SepiaCommand : ModernDiscordCommand
+    class SepiaCommand : DiscordCommand
     {
         public override string Name => "Sepia";
 

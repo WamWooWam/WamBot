@@ -14,7 +14,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Meme
 {
-    class ClippyCommand : ModernDiscordCommand
+    class ClippyCommand : DiscordCommand
     {
         static Rgba32 colour = new Rgba32(255, 255, 204); // clippy background colour
         static Image<Rgba32> clippyTop;

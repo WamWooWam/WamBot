@@ -9,7 +9,7 @@ using WamBot.Core;
 namespace WamBot.Cli.StockCommands
 {
     [Owner]
-    class MakeAnnouncementCommand : ModernDiscordCommand
+    class MakeAnnouncementCommand : DiscordCommand
     {
         public override string Name => "Make Announcement";
 

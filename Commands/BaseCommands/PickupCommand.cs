@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace BaseCommands
 {
-    class PickupCommand : ModernDiscordCommand
+    class PickupCommand : DiscordCommand
     {
         static HttpClient _client;
 

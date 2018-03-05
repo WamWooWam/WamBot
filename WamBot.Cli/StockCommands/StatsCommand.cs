@@ -14,7 +14,7 @@ using WamWooWam.Core;
 
 namespace WamBot.Cli
 {
-    class StatsCommand : DiscordCommand
+    class StatsCommand : BaseDiscordCommand
     {
         public override string Name => "Stats";
 

@@ -4,13 +4,15 @@
     <TargetFramework>net461</TargetFramework>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <OutputPath>..\Build\</OutputPath>
-    <SignAssembly>true</SignAssembly>
-    <DelaySign>false</DelaySign>
-    <AssemblyOriginatorKeyFile>strong.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="strong.pfx" />
+    <Compile Remove="JSEval\Globals\**" />
+    <Compile Remove="PythonEval\**" />
+    <EmbeddedResource Remove="JSEval\Globals\**" />
+    <EmbeddedResource Remove="PythonEval\**" />
+    <None Remove="JSEval\Globals\**" />
+    <None Remove="PythonEval\**" />
   </ItemGroup>
   
   <ItemGroup>
@@ -32,6 +34,9 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.Scripting.Core">
       <HintPath>..\..\..\..\..\Downloads\jsrt-dotnet-master\src\Microsoft.Scripting.Core\bin\Debug\netstandard2.0\Microsoft.Scripting.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="WamWooWam.Core">
+      <HintPath>..\..\Libraries\WamWooWam.Core\Debug\netstandard2.0\WamWooWam.Core.dll</HintPath>
     </Reference>
   </ItemGroup>
 

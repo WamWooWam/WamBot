@@ -59,7 +59,7 @@ namespace WamBot
 
         private static void ConfigLoadFailure()
         {
-            throw new NotImplementedException();
+
         }
     }
 }

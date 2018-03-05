@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands
 {
-    class BlackWhiteCommand : ModernDiscordCommand
+    class BlackWhiteCommand : DiscordCommand
     {
         public override string Name => "Black & White";
 

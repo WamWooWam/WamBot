@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Draw
 {
-    class FillCommand : ModernDiscordCommand
+    class FillCommand : DiscordCommand
     {
         public override string Name => "Fill";
 

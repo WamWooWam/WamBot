@@ -10,4 +10,10 @@
     <ProjectReference Include="..\..\WamBot.Api\WamBot.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="WamWooWam.Core.Serialisation">
+      <HintPath>..\..\Libraries\WamWooWam.Core.Serialisation\Debug\netstandard2.0\WamWooWam.Core.Serialisation.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

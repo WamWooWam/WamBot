@@ -39,7 +39,7 @@ namespace WamBot.Api
             }
         }
 
-        public static T GetData<T>(this DiscordCommand command, string name)
+        public static T GetData<T>(this BaseDiscordCommand command, string name)
         {
             if (!Directory.Exists(configDataPath))
             {
@@ -71,7 +71,7 @@ namespace WamBot.Api
             }
         }
 
-        public static void SetData<T>(this DiscordCommand command, string name, T data)
+        public static void SetData<T>(this BaseDiscordCommand command, string name, T data)
         {
             if (!Directory.Exists(configDataPath))
             {

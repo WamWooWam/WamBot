@@ -7,12 +7,7 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="CoreCompat.System.Drawing.v2" Version="5.2.0-preview1-r131" />
-    <PackageReference Include="DSharpPlus" Version="4.0.0-beta-00421" />
-    <PackageReference Include="DSharpPlus.VoiceNext" Version="4.0.0-beta-00421" />
-    <PackageReference Include="Google.Apis.YouTube.v3" Version="1.32.1.1079" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="1.0.0-beta0002" />
-    <PackageReference Include="taglib" Version="2.1.0" />
+    <PackageReference Include="DSharpPlus" Version="4.0.0-beta-00426" />
   </ItemGroup>
 
   <ItemGroup>

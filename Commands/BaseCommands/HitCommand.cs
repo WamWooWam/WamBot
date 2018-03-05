@@ -6,7 +6,7 @@ using WamBot.Api;
 
 namespace BaseCommands
 {
-    class HitCommand : ModernDiscordCommand
+    class HitCommand : DiscordCommand
     {
         static Random rand = new Random();
 

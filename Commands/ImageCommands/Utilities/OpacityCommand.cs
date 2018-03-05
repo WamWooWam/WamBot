@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Utilities
 {
-    class OpacityCommand : ModernDiscordCommand
+    class OpacityCommand : DiscordCommand
     {
         public override string Name => "Opacity";
 

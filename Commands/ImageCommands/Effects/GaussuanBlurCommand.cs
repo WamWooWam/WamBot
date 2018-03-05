@@ -10,7 +10,7 @@ using WamCash.Intergration;
 
 namespace ImageCommands
 {
-    class GaussuanBlurCommand : ModernDiscordCommand
+    class GaussuanBlurCommand : DiscordCommand
     {
         public override string Name => "Gaussian Blur";
 

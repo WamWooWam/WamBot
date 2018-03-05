@@ -6,7 +6,7 @@ using WamBot.Api;
 
 namespace MathsCommands
 {
-    class BinaryCommand : ModernDiscordCommand
+    class BinaryCommand : DiscordCommand
     {
         public override string Name => "Binary";
 

@@ -9,7 +9,7 @@ namespace WamBot.Cli.StockCommands
 {
     [Owner]
     [HttpClient]
-    class HttpCancelCommand : DiscordCommand
+    class HttpCancelCommand : BaseDiscordCommand
     {
         HttpClient _client;
 

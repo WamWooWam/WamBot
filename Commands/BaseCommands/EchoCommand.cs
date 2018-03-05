@@ -4,7 +4,7 @@ using WamBot.Api;
 
 namespace BaseCommands
 {
-    public class EchoCommand : ModernDiscordCommand
+    public class EchoCommand : DiscordCommand
     {
         public override string Name => "Echo";
 

@@ -23,7 +23,7 @@ namespace WamCash
 
         public string Description => "CASH, WONGA, DOLLA DOLLA! Or, well, money.";
 
-        private DiscordCommand _anyCommand = new SetBalanceCommand();
+        private BaseDiscordCommand _anyCommand = new SetBalanceCommand();
         private ConcurrentDictionary<ulong, decimal> _store = new ConcurrentDictionary<ulong, decimal>();
         private Timer _timer = new Timer(TimeSpan.FromHours(1).TotalMilliseconds);
         private DiscordClient _client;

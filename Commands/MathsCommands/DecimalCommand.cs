@@ -8,7 +8,7 @@ using System.Globalization;
 
 namespace MathsCommands
 {
-    class DecimalCommand : ModernDiscordCommand
+    class DecimalCommand : DiscordCommand
     {
         public override string Name => "Decimal";
 

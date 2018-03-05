@@ -8,7 +8,7 @@ using WamBot.Api;
 namespace Variables.Commands
 {
     [RequiresGuild]
-    class SetVariableCommand : ModernDiscordCommand
+    class SetVariableCommand : DiscordCommand
     {
         public override string Name => "Set Variable";
 

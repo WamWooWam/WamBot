@@ -10,7 +10,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Draw
 {
-    class MeasureTextCommand : DiscordCommand
+    class MeasureTextCommand : BaseDiscordCommand
     {
         public override string Name => "Measure Text";
 

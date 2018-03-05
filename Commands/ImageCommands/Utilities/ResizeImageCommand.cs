@@ -9,7 +9,7 @@ using WamBot.Api;
 
 namespace ImageCommands
 {
-    public class ResizeImageCommand : ModernDiscordCommand
+    public class ResizeImageCommand : DiscordCommand
     {
 
         public override string Name => "Resize Image";

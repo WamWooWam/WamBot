@@ -11,7 +11,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Draw
 {
-    class TextCommand : ModernDiscordCommand
+    class TextCommand : DiscordCommand
     {
         public override string Name => "Text";
 

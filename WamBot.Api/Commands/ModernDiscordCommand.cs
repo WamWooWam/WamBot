@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace WamBot.Api
 {
-    public abstract class ModernDiscordCommand : DiscordCommand
+    public abstract class DiscordCommand : BaseDiscordCommand
     {
         private static ConcurrentDictionary<Type, MethodInfo[]> methodCache = new ConcurrentDictionary<Type, MethodInfo[]>();
         private static ConcurrentDictionary<MethodInfo, ParameterInfo[]> parameterCache = new ConcurrentDictionary<MethodInfo, ParameterInfo[]>();

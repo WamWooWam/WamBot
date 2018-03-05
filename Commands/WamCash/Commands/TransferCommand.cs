@@ -8,7 +8,7 @@ using WamCash.Entities;
 
 namespace WamCash.Commands
 {
-    class TransferCommand : ModernDiscordCommand
+    class TransferCommand : DiscordCommand
     {
         public override string Name => "Transfer";
 

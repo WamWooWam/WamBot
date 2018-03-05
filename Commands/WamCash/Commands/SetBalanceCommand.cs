@@ -11,7 +11,7 @@ namespace WamCash.Commands
 {
     [Owner]
     [RequiresGuild]
-    class SetBalanceCommand : ModernDiscordCommand
+    class SetBalanceCommand : DiscordCommand
     {
         public override string Name => "Set Balance";
 

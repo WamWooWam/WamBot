@@ -6,7 +6,7 @@ using WamBot.Api;
 
 namespace BaseCommands
 {
-    class PetCommand : ModernDiscordCommand
+    class PetCommand : DiscordCommand
     {
         public override string Name => "Pet";
 

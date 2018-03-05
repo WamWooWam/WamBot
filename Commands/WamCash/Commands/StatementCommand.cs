@@ -10,7 +10,7 @@ using WamCash.Entities;
 namespace WamCash.Commands
 {
     [RequiresGuild]
-    class StatementCommand : ModernDiscordCommand
+    class StatementCommand : DiscordCommand
     {
         public override string Name => "Statement";
 

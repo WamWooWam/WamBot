@@ -9,7 +9,7 @@ using WamBot.Api;
 
 namespace ImageCommands
 {
-    class SaturatonCommand : ModernDiscordCommand
+    class SaturatonCommand : DiscordCommand
     {
         public override string Name => "Saturation";
 

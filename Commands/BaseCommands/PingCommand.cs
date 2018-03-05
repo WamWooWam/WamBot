@@ -6,7 +6,7 @@ using WamBot.Api;
 
 namespace BaseCommands
 {
-    class PingCommand : ModernDiscordCommand
+    class PingCommand : DiscordCommand
     {
         public override string Name => "Ping";
 

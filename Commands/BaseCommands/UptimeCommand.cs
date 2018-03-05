@@ -8,7 +8,7 @@ using WamWooWam.Core;
 
 namespace BaseCommands
 {
-    class UptimeCommand : ModernDiscordCommand
+    class UptimeCommand : DiscordCommand
     {
         private static DateTime? _startupTime = null;
 

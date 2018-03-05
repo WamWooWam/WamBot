@@ -10,7 +10,7 @@ using WamCash.Entities;
 namespace WamCash.Commands
 {
     [RequiresGuild]
-    class GetBalanceCommand : ModernDiscordCommand
+    class GetBalanceCommand : DiscordCommand
     {
         public override string Name => "Balance";
 

@@ -8,7 +8,7 @@ using WamBot.Api;
 namespace BaseCommands
 {
     [Owner]
-    class RepeatCommand : ModernDiscordCommand
+    class RepeatCommand : DiscordCommand
     {
         static Dictionary<ulong, CancellationTokenSource> CancelationTokens = new Dictionary<ulong, CancellationTokenSource>();
 

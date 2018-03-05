@@ -11,7 +11,7 @@ using SixLabors.Primitives;
 
 namespace ImageCommands.Draw
 {
-    class RectCommand : ModernDiscordCommand
+    class RectCommand : DiscordCommand
     {
         public override string Name => "Rectangle";
 

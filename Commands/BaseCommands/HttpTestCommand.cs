@@ -9,7 +9,7 @@ using WamBot.Api;
 namespace BaseCommands
 {
     [HttpClient]
-    public class HttpTestCommand : ModernDiscordCommand
+    public class HttpTestCommand : DiscordCommand
     {
         static HttpClient _client;
 

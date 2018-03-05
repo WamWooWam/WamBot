@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Effects
 {
-    class InvertCommand : ModernDiscordCommand
+    class InvertCommand : DiscordCommand
     {
         public override string Name => "Invert";
 

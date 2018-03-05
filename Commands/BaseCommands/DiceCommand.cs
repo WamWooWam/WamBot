@@ -7,7 +7,7 @@ using WamBot.Api;
 namespace BaseCommands
 {
     [TriggersTyping]
-    class DiceCommand : ModernDiscordCommand
+    class DiceCommand : DiscordCommand
     {
         private Random _random;
 

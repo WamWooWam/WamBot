@@ -11,7 +11,7 @@ using WamBot.Api;
 namespace ModerationCommands
 {
     [RequiresGuild]
-    class HackBanCommand : ModernDiscordCommand
+    class HackBanCommand : DiscordCommand
     {
         public override string Name => "Hack Ban";
 

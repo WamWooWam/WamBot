@@ -9,7 +9,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Utilities
 {
-    class MetaCommand : ModernDiscordCommand
+    class MetaCommand : DiscordCommand
     {
         public override string Name => "Meta";
 

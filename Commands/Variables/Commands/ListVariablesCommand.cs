@@ -9,7 +9,7 @@ using WamBot.Api;
 namespace Variables.Commands
 {
     [RequiresGuild]
-    class ListVariablesCommand : ModernDiscordCommand
+    class ListVariablesCommand : DiscordCommand
     {
         public override string Name => "List Variables";
 

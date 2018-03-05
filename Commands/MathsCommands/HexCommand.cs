@@ -6,7 +6,7 @@ using WamBot.Api;
 
 namespace MathsCommands
 {
-    class HexCommand : ModernDiscordCommand
+    class HexCommand : DiscordCommand
     {
         public override string Name => "Hex";
 

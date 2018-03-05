@@ -11,7 +11,7 @@ using WamBot.Core;
 namespace WamBot.Cli.StockCommands
 {
     [RequiresGuild]
-    class AnnouncementsCommand : ModernDiscordCommand
+    class AnnouncementsCommand : DiscordCommand
     {
         public override string Name => "Announcements";
 

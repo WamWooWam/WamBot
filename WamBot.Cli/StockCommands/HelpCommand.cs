@@ -9,7 +9,7 @@ using WamBot.Core;
 
 namespace WamBot.Cli.StockCommands
 {
-    class HelpCommand : ModernDiscordCommand
+    class HelpCommand : DiscordCommand
     {
         public override string Name => "Help";
 
@@ -31,7 +31,7 @@ namespace WamBot.Cli.StockCommands
                 embedBuilder.WithAuthor("Listing Command Categories - WamBot 3.0.0", icon_url: Context.Client.CurrentApplication.Icon);
                 foreach (var asm in (botContext.AssemblyCommands))
                 {
-                    IEnumerable<DiscordCommand> availableCommands = GetAvailableCommands(asm.Value);
+                    IEnumerable<BaseDiscordCommand> availableCommands = GetAvailableCommands(asm.Value);
                     if (availableCommands.Any())
                     {
                         embedBuilder.AddField(
@@ -43,7 +43,7 @@ namespace WamBot.Cli.StockCommands
             }
             else
             {
-                DiscordCommand command = GetAvailableCommands(botContext.Commands).FirstOrDefault(c => c.Aliases.Contains(alias.ToLower().Trim()));
+                BaseDiscordCommand command = GetAvailableCommands(botContext.Commands).FirstOrDefault(c => c.Aliases.Contains(alias.ToLower().Trim()));
                 if (command != null)
                 {
                     embedBuilder.WithAuthor($"{command.Name} - WamBot 3.0.0", icon_url: Context.Client.CurrentApplication.Icon);
@@ -59,12 +59,12 @@ namespace WamBot.Cli.StockCommands
                     var asm = botContext.AssemblyCommands.FirstOrDefault(a => a.Key.Name.ToLower().Trim() == alias.ToLower().Trim());
                     if (asm.Value != null && asm.Key != null)
                     {
-                        IEnumerable<DiscordCommand> availableCommands = GetAvailableCommands(asm.Value);
+                        IEnumerable<BaseDiscordCommand> availableCommands = GetAvailableCommands(asm.Value);
                         embedBuilder.WithAuthor($"{asm.Key.Name} Commands - WamBot 3.0.0", icon_url: Context.Client.CurrentApplication.Icon);
                         embedBuilder.WithDescription(asm.Key.Description ?? "No description provided.");
                         if (availableCommands.Any())
                         {
-                            foreach (DiscordCommand c in availableCommands)
+                            foreach (BaseDiscordCommand c in availableCommands)
                             {
                                 embedBuilder.AddField($"{c.Name} (`{c.Aliases.FirstOrDefault()}`)", c.Description, true);
                             }
@@ -84,9 +84,9 @@ namespace WamBot.Cli.StockCommands
             return Task.FromResult<CommandResult>(embedBuilder.Build());
         }
 
-        private IEnumerable<DiscordCommand> GetAvailableCommands(IEnumerable<DiscordCommand> commands)
+        private IEnumerable<BaseDiscordCommand> GetAvailableCommands(IEnumerable<BaseDiscordCommand> commands)
         {
-            IEnumerable<DiscordCommand> current = commands;
+            IEnumerable<BaseDiscordCommand> current = commands;
             if (Context.Message.Author.Id != Context.Client.CurrentApplication.Owner.Id)
             {
                 current = current.Where(c => !c.HasAttribute<OwnerAttribute>());

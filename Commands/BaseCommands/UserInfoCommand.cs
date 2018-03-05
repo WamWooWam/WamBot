@@ -9,7 +9,7 @@ using WamBot.Api;
 
 namespace BaseCommands
 {
-    class UserInfoCommand : ModernDiscordCommand
+    class UserInfoCommand : DiscordCommand
     {
         public override string Name => "User Info";
 

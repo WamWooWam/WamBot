@@ -8,7 +8,7 @@ using WamBot.Api;
 namespace ModerationCommands
 {
     [RequiresGuild]
-    class LockServerCommand : ModernDiscordCommand
+    class LockServerCommand : DiscordCommand
     {
         public override string Name => "Lock Server";
 

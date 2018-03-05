@@ -9,7 +9,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Draw
 {
-    class EllipseCommand : ModernDiscordCommand
+    class EllipseCommand : DiscordCommand
     {
         public override string Name => "Ellipse";
 

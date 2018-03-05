@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands
 {
-    class GreyscaleCommand : ModernDiscordCommand
+    class GreyscaleCommand : DiscordCommand
     {
         public override string Name => "Greyscale";
 

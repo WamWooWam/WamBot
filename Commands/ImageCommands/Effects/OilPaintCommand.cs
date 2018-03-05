@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Effects
 {
-    class OilPaintCommand : ModernDiscordCommand
+    class OilPaintCommand : DiscordCommand
     {
         public override string Name => "Oil Paint";
 

@@ -10,7 +10,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Draw
 {
-    class PolygonCommand : ModernDiscordCommand
+    class PolygonCommand : DiscordCommand
     {
         public override string Name => "Polygon";
 

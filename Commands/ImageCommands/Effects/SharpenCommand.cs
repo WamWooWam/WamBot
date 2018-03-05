@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Effects
 {
-    class SharpenCommand : ModernDiscordCommand
+    class SharpenCommand : DiscordCommand
     {
         public override string Name => "Sharpen";
 

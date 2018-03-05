@@ -10,7 +10,7 @@ using WamBot.Api;
 namespace ModerationCommands
 {
     [RequiresGuild]
-    class MassDeleteCommand : ModernDiscordCommand
+    class MassDeleteCommand : DiscordCommand
     {
         public override string Name => "Mass Delete";
 

@@ -1,14 +1,13 @@
 ﻿using DSharpPlus;
 using DSharpPlus.Entities;
-using DSharpPlus.VoiceNext;
-using DSharpPlus.VoiceNext.Codec;
-using MusicCommands.Models;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using WamBot.Api;
@@ -16,7 +15,7 @@ using WamBot.Api;
 namespace MusicCommands
 {
     [RequiresGuild]
-    class JoinCommand : DiscordCommand
+    class JoinCommand : BaseDiscordCommand
     {
         public override string Name => "Join";
 
@@ -25,132 +24,66 @@ namespace MusicCommands
         public override string[] Aliases => new[] { "join", "connect" };
 
         public override Func<int, bool> ArgumentCountPrecidate => x => x <= 1;
-        
+
         public override Permissions RequiredPermissions => base.RequiredPermissions | Permissions.UseVoice;
 
-        public override async Task<CommandResult> RunCommand(string[] args, CommandContext context)
-        {
-            if (Static.VoiceExtention == null)
-            {
-                Static.VoiceExtention = context.Client.UseVoiceNext(new VoiceNextConfiguration() { VoiceApplication = VoiceApplication.Music });
-            }
+        private static Dictionary<ulong, Process> RunningConnections { get; set; } = new Dictionary<ulong, Process>();
 
+        public override Task<CommandResult> RunCommand(string[] args, CommandContext context)
+        {
             try
             {
-                if (context.Author is DiscordMember memb)
-                {
-                    DiscordVoiceState state = memb.VoiceState;
-                    if (state != null)
-                    {
-                        if (!Static.Connections.TryGetValue(memb.Guild.Id, out ConnectionModel connection) || !connection.Connected)
-                        {
-                            VoiceNextConnection vNextconnection = await Static.VoiceExtention.ConnectAsync(state.Channel);
-                            Static.Connections[state.Channel.GuildId] = new ConnectionModel(vNextconnection);
-                            await context.ReplyAsync($"Connected to {state.Channel.Name}!");
+                string evalExePath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Tools", "WamBotVoiceProcess.exe");
 
-                            connection = Static.Connections[state.Channel.GuildId];
-                            await MusicPlayLoop(context, connection);
+                if (File.Exists(evalExePath))
+                {
+                    if (context.Author is DiscordMember memb)
+                    {
+                        DiscordVoiceState state = memb.VoiceState;
+                        if (state != null)
+                        {
+                            if (!RunningConnections.TryGetValue(memb.Guild.Id, out Process connection))
+                            {
+                                Process evalProcess = new Process();
+                                evalProcess.StartInfo.FileName = evalExePath;
+                                evalProcess.StartInfo.Arguments =
+                                    $"{context.Guild.Id} " +
+                                    $"{state.Channel.Id} " +
+                                    $"{context.Channel.Id} " +
+                                    $"\"{Path.Combine(Directory.GetCurrentDirectory(), "config.json")}\"";
+                                evalProcess.StartInfo.UseShellExecute = false;
+                                RunningConnections[memb.Guild.Id] = evalProcess;
+
+                                evalProcess.Start();
+                                evalProcess.WaitForExit();
+                                RunningConnections.Remove(memb.Guild.Id);
+                            }
+                            else
+                            {
+                                return Task.FromResult<CommandResult>("I'm already connected to voice in here! Fuck off!");
+                            }
                         }
                         else
                         {
-                            return "I'm already connected to voice in here! Fuck off!";
+                            return Task.FromResult<CommandResult>("You'll need to connect to voice before you can do that!");
                         }
                     }
                     else
                     {
-                        return "You'll need to connect to voice before you can do that!";
+                        return Task.FromResult<CommandResult>("I can only join voice channels within guilds, sorry!");
                     }
                 }
                 else
                 {
-                    return "I can only join voice channels within guilds, sorry!";
+                    return Task.FromResult<CommandResult>("Voice is currently not available as required executables are missing. Sorry!");
                 }
             }
             catch (TaskCanceledException) { }
             catch (OperationCanceledException) { }
             catch (InvalidOperationException) { }
 
-            return CommandResult.Empty;
+            return Task.FromResult(CommandResult.Empty);
         }
 
-        private static async Task MusicPlayLoop(CommandContext context, ConnectionModel connection)
-        {
-            try
-            {
-                while (connection.Connected)
-                {
-                    if (connection.Songs.TryDequeue(out SongModel model))
-                    {
-                        await context.ReplyAsync($"Now Playing: **{model}**");
-
-                        try
-                        {
-                            using (MediaFoundationReader reader = new MediaFoundationReader(model.FilePath))
-                            using (MediaFoundationResampler resampler = new MediaFoundationResampler(reader, 48000))
-                            {
-                                VolumeSampleProvider volume = new VolumeSampleProvider(resampler.ToSampleProvider()) { Volume = 0.66f };
-                                connection.SampleProvider = volume;
-                                IWaveProvider waveProvider = connection.SampleProvider.ToWaveProvider16();
-
-                                connection.Total = reader.TotalTime;
-                                connection.NowPlaying = model;
-
-                                byte[] buff = new byte[3840];
-                                int br = 0;
-
-                                await connection.Connection.SendSpeakingAsync(true);
-
-                                while ((br = waveProvider.Read(buff, 0, buff.Length)) > 0)
-                                {
-                                    connection.Token.ThrowIfCancellationRequested();
-
-                                    if (connection.Skip)
-                                    {
-                                        break;
-                                    }
-
-                                    if (br < buff.Length)
-                                    {
-                                        for (int i = br; i < buff.Length; i++)
-                                        {
-                                            buff[i] = 0;
-                                        }
-                                    }
-
-                                    connection.Elapsed = reader.CurrentTime;
-
-                                    await connection.Connection.SendAsync(buff, 20);
-                                }
-
-                                if (connection.Connected)
-                                {
-                                    await connection.Connection.SendSpeakingAsync(false);
-                                }
-
-                                connection.Skip = false;
-                            }
-                        }
-                        catch (OperationCanceledException) { break; }
-                        catch (InvalidOperationException) { break; }
-                        catch (Exception ex)
-                        {
-                            await context.ReplyAsync($"Something went a bit wrong attempting to play that and a {ex.GetType().Name} was thrown. Sorry!\r\n{ex.Message}");
-                        }
-                    }
-
-                    connection.NowPlaying = null;
-                    connection.Skip = false;
-
-                    await Task.Delay(500);
-                }
-            }
-            catch
-            {
-                if (connection.Connected)
-                {
-                    throw;
-                }
-            }
-        }
     }
 }

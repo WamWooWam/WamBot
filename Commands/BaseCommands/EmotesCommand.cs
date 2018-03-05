@@ -9,7 +9,7 @@ using WamBot.Api;
 namespace BaseCommands
 {
     [Owner]
-    class EmotesCommand : ModernDiscordCommand
+    class EmotesCommand : DiscordCommand
     {
         public override string Name => "Emotes";
 

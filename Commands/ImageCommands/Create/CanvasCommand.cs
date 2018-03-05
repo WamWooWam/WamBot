@@ -11,7 +11,7 @@ using WamCash.Intergration;
 
 namespace ImageCommands.Create
 {
-    class CanvasCommand : ModernDiscordCommand
+    class CanvasCommand : DiscordCommand
     {
         public override string Name => "Canvas";
 

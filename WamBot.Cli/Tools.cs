@@ -12,7 +12,7 @@ namespace WamBot.Core
 {
     internal static class InternalTools
     {
-        internal static RequestTelemetry GetRequestTelemetry(DiscordUser author, DiscordChannel channel, DiscordCommand command, DateTimeOffset start, string code, bool success)
+        internal static RequestTelemetry GetRequestTelemetry(DiscordUser author, DiscordChannel channel, BaseDiscordCommand command, DateTimeOffset start, string code, bool success)
         {
             RequestTelemetry tel = new RequestTelemetry(command?.GetType().Name ?? "N/A", start, DateTimeOffset.Now - start, code, success);
             tel.Properties.Add("invoker", author.Id.ToString());
@@ -22,7 +22,7 @@ namespace WamBot.Core
             return tel;
         }
 
-        internal static bool CheckPermissions(DiscordClient client, DiscordUser author, DiscordChannel channel, DiscordCommand command)
+        internal static bool CheckPermissions(DiscordClient client, DiscordUser author, DiscordChannel channel, BaseDiscordCommand command)
         {
             bool go = true;
 

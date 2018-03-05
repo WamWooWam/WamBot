@@ -13,7 +13,7 @@ using System.Text.RegularExpressions;
 namespace WhatTheActualFuckCommands.SSH
 {
     [RequiresGuild]
-    class VistaSSHCommand : ModernDiscordCommand
+    class VistaSSHCommand : DiscordCommand
     {
         static SshClient _adminClient = null;
         static Dictionary<ulong, Tuple<ShellStream, SshClient, CancellationTokenSource>> _clientDictionary = new Dictionary<ulong, Tuple<ShellStream, SshClient, CancellationTokenSource>>();

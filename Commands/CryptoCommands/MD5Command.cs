@@ -7,7 +7,7 @@ using WamBot.Api;
 
 namespace CryptoCommands
 {
-    class MD5Command : ModernDiscordCommand, IDisposable
+    class MD5Command : DiscordCommand, IDisposable
     {
         public override string Name => "MD5";
 

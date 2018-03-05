@@ -8,7 +8,7 @@ using WamBot.Api;
 namespace WamBot.Cli.StockCommands
 { 
     [Owner]
-    class ExitCommand : DiscordCommand
+    class ExitCommand : BaseDiscordCommand
     {
         public override string Name => "Exit";
 

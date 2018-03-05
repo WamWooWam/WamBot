@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Effects
 {
-    class PixelateCommand : ModernDiscordCommand
+    class PixelateCommand : DiscordCommand
     {
         public override string Name => "Pixelate";
 

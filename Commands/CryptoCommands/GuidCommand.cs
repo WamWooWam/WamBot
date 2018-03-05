@@ -6,7 +6,7 @@ using WamBot.Api;
 
 namespace CryptoCommands
 {
-    class GuidCommand : ModernDiscordCommand
+    class GuidCommand : DiscordCommand
     {
         public override string Name => "GUID";
 

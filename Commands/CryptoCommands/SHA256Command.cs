@@ -7,7 +7,7 @@ using WamBot.Api;
 
 namespace CryptoCommands
 {
-    class SHA256Command : ModernDiscordCommand
+    class SHA256Command : DiscordCommand
     {
         public override string Name => "SHA256";
 

@@ -9,7 +9,7 @@ using WamBot.Core;
 
 namespace WamBot.Cli.StockCommands
 {
-    class HappinessCommand : ModernDiscordCommand
+    class HappinessCommand : DiscordCommand
     {
         public override string Name => "Happiness";
 

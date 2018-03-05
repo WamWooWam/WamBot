@@ -8,7 +8,7 @@ using WamBot.Api;
 
 namespace ImageCommands.Utilities
 {
-    class RotateCommand : ModernDiscordCommand
+    class RotateCommand : DiscordCommand
     {
         public override string Name => "Rotate";
 

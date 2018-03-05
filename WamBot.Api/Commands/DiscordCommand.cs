@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace WamBot.Api
 {
-    public abstract class DiscordCommand
+    public abstract class BaseDiscordCommand
     {
         public abstract string Name { get; }
 
