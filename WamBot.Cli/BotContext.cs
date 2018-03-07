@@ -336,93 +336,107 @@ namespace WamBot.Core
 
         private async Task ProcessMessage(DiscordMessage message, DiscordUser author, DiscordChannel channel)
         {
-            DateTimeOffset startTime = DateTimeOffset.Now;
-            if (!string.IsNullOrWhiteSpace(message?.Content) && !author.IsBot && !author.IsCurrent && !_processedMessageIds.Contains(message.Id))
+            try
             {
-                if (message.Content.ToLower().StartsWith(_config.Prefix.ToLower()))
+                DateTimeOffset startTime = DateTimeOffset.Now;
+                if (!string.IsNullOrWhiteSpace(message?.Content) && !author.IsBot && !author.IsCurrent && !_processedMessageIds.Contains(message.Id))
                 {
-                    LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Found command prefix, parsing..."));
-                    IEnumerable<string> commandSegments = Strings.SplitCommandLine(message.Content.Substring(_config.Prefix.Length));
-
-                    foreach (IParseExtension extenstion in _parseExtensions)
+                    if (message.Content.ToLower().StartsWith(_config.Prefix.ToLower()))
                     {
-                        commandSegments = extenstion.Parse(commandSegments, channel);
-                    }
+                        LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Found command prefix, parsing..."));
+                        IEnumerable<string> commandSegments = Strings.SplitCommandLine(message.Content.Substring(_config.Prefix.Length));
 
-                    if (commandSegments.Any())
-                    {
-                        string commandAlias = commandSegments.First().ToLower();
-                        IEnumerable<BaseDiscordCommand> foundCommands = _commands.Where(c => c.Aliases.Any(a => a.ToLower() == commandAlias));
-                        BaseDiscordCommand commandToRun = foundCommands.FirstOrDefault();
-                        if (commandToRun != null)
+                        foreach (IParseExtension extenstion in _parseExtensions)
                         {
-                            if (foundCommands.Count() == 1)
-                            {
-                                await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, commandToRun, startTime);
-                            }
-                            else if (commandSegments.Count() >= 2)
-                            {
-                                foundCommands = _assemblyCommands.FirstOrDefault(c => c.Key.Name.ToLowerInvariant() == commandAlias)
-                                    .Value?.Where(c => c.Aliases.Contains(commandSegments.ElementAt(1).ToLower()));
+                            commandSegments = extenstion.Parse(commandSegments, channel);
+                        }
 
-                                if (foundCommands != null && foundCommands.Count() == 1)
+                        if (commandSegments.Any())
+                        {
+                            string commandAlias = commandSegments.First().ToLower();
+                            IEnumerable<BaseDiscordCommand> foundCommands = _commands.Where(c => c?.Aliases?.Any(a => a.ToLower() == commandAlias) == true);
+                            BaseDiscordCommand commandToRun = foundCommands.FirstOrDefault();
+                            if (commandToRun != null)
+                            {
+                                if (foundCommands.Count() == 1)
                                 {
-                                    await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(2), commandAlias, foundCommands.First(), startTime);
+                                    await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, commandToRun, startTime);
                                 }
-                                else
+                                else if (commandSegments.Count() >= 2)
                                 {
-                                    if (commandToRun != null)
+                                    foundCommands = _assemblyCommands.FirstOrDefault(c => c.Key.Name.ToLowerInvariant() == commandAlias)
+                                        .Value?.Where(c => c.Aliases.Contains(commandSegments.ElementAt(1).ToLower()));
+
+                                    if (foundCommands != null && foundCommands.Count() == 1)
                                     {
-                                        await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, foundCommands.First(), startTime);
+                                        await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(2), commandAlias, foundCommands.First(), startTime);
                                     }
                                     else
                                     {
-                                        LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Unable to find command with alias \"{commandAlias}\"."));
-                                        await InternalTools.SendTemporaryMessage(message, author, channel, $"```\r\n{commandAlias}: command not found!\r\n```");
-                                        _telemetryClient?.TrackRequest(InternalTools.GetRequestTelemetry(author, channel, null, startTime, "404", false));
+                                        if (commandToRun != null)
+                                        {
+                                            await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, foundCommands.First(), startTime);
+                                        }
+                                        else
+                                        {
+                                            LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Unable to find command with alias \"{commandAlias}\"."));
+                                            await InternalTools.SendTemporaryMessage(message, author, channel, $"```\r\n{commandAlias}: command not found!\r\n```");
+                                            _telemetryClient?.TrackRequest(InternalTools.GetRequestTelemetry(author, channel, null, startTime, "404", false));
+                                        }
                                     }
                                 }
-                            }
-                            else if (commandToRun != null)
-                            {
-                                await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, foundCommands.First(), startTime);
+                                else if (commandToRun != null)
+                                {
+                                    await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, foundCommands.First(), startTime);
+                                }
                             }
                         }
                     }
                 }
             }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
         }
 
         private async Task ExecuteCommandAsync(DiscordMessage message, DiscordUser author, DiscordChannel channel, IEnumerable<string> commandSegments, string commandAlias, BaseDiscordCommand command, DateTimeOffset start)
         {
-            LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Found {command.Name} command!"));
-            _processedMessageIds.Add(message.Id);
-            if (command.ArgumentCountPrecidate(commandSegments.Count()))
+            try
             {
-                if (InternalTools.CheckPermissions(_discordClient, channel.Guild?.CurrentMember ?? _discordClient.CurrentUser, channel, command))
+                LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Found {command.Name} command!"));
+                _processedMessageIds.Add(message.Id);
+                if (command.ArgumentCountPrecidate(commandSegments.Count()))
                 {
-                    if (InternalTools.CheckPermissions(_discordClient, author, channel, command))
+                    if (InternalTools.CheckPermissions(_discordClient, channel.Guild?.CurrentMember ?? _discordClient.CurrentUser, channel, command))
                     {
-                        LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Running command \"{command.Name}\" asynchronously."));
-                        new Task(async () => await RunCommandAsync(message, author, channel, commandSegments, commandAlias, command, start)).Start();
+                        if (InternalTools.CheckPermissions(_discordClient, author, channel, command))
+                        {
+                            LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Running command \"{command.Name}\" asynchronously."));
+                            new Task(async () => await RunCommandAsync(message, author, channel, commandSegments, commandAlias, command, start)).Start();
+                        }
+                        else
+                        {
+                            LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Attempt to run command without correct user permissions."));
+                            await InternalTools.SendTemporaryMessage(message, author, channel, $"Oi! You're not allowed to run that command! Fuck off!");
+                            _telemetryClient?.TrackRequest(InternalTools.GetRequestTelemetry(author, channel, command, start, "401", false));
+                        }
                     }
                     else
                     {
-                        LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Attempt to run command without correct user permissions."));
-                        await InternalTools.SendTemporaryMessage(message, author, channel, $"Oi! You're not allowed to run that command! Fuck off!");
-                        _telemetryClient?.TrackRequest(InternalTools.GetRequestTelemetry(author, channel, command, start, "401", false));
+                        LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Attempt to run command without correct bot permissions."));
+                        await InternalTools.SendTemporaryMessage(message, author, channel, $"Sorry! I don't have permission to run that command in this server! Contact an admin/mod for more info.");
+                        _telemetryClient?.TrackRequest(InternalTools.GetRequestTelemetry(author, channel, command, start, "403", false));
                     }
                 }
                 else
                 {
-                    LogMessage?.Invoke(this, ($"[{message.Channel.Guild?.Name ?? message.Channel.Name}] Attempt to run command without correct bot permissions."));
-                    await InternalTools.SendTemporaryMessage(message, author, channel, $"Sorry! I don't have permission to run that command in this server! Contact an admin/mod for more info.");
-                    _telemetryClient?.TrackRequest(InternalTools.GetRequestTelemetry(author, channel, command, start, "403", false));
+                    await HandleBadRequest(message, author, channel, commandSegments, commandAlias, command, start);
                 }
             }
-            else
+            catch (Exception ex)
             {
-                await HandleBadRequest(message, author, channel, commandSegments, commandAlias, command, start);
+                Console.WriteLine(ex);
             }
         }
 
@@ -504,22 +518,26 @@ namespace WamBot.Core
 
                 _config.Happiness[author.Id] = (sbyte)((int)(context.Happiness).Clamp(sbyte.MinValue, sbyte.MaxValue));
             }
-            catch (BadArgumentsException)
+            catch (BadArgumentsException ex)
             {
+                Console.WriteLine(ex);
                 await HandleBadRequest(message, author, channel, commandSegments, commandAlias, command, start);
             }
             catch (CommandException ex)
             {
+                Console.WriteLine(ex);
                 await channel.SendMessageAsync(ex.Message);
                 _telemetryClient?.TrackRequest(InternalTools.GetRequestTelemetry(author, channel, command, start, "400", false));
             }
-            catch (ArgumentOutOfRangeException)
+            catch (ArgumentOutOfRangeException ex)
             {
+                Console.WriteLine(ex);
                 await channel.SendMessageAsync("Hey there! That's gonna cause some issues, no thanks!!");
                 _telemetryClient?.TrackRequest(InternalTools.GetRequestTelemetry(author, channel, command, start, "400", false));
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex);
                 success = false;
                 ManageException(message, author, channel, ex, command);
 

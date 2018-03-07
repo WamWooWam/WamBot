@@ -1,9 +1,6 @@
 ﻿using DSharpPlus.Entities;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using NLua;
-using NLua.Event;
-using NLua.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

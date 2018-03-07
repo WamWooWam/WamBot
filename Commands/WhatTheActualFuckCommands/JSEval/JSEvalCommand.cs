@@ -1,5 +1,4 @@
 ﻿using DSharpPlus.Entities;
-using Microsoft.Scripting.JavaScript;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;

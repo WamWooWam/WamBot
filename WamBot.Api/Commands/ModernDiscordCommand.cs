@@ -95,124 +95,114 @@ namespace WamBot.Api
 
         public override async Task<CommandResult> RunCommand(string[] args, CommandContext context)
         {
-            Stopwatch watch = Stopwatch.StartNew();
-            try
+            MethodInfo[] methods = GetMethods();
+            if (methods.Any())
             {
-                MethodInfo[] methods = GetMethods();
-                if (methods.Any())
+                Tuple<ParameterInfo, Exception> lastException = null;
+                foreach (MethodInfo method in methods)
                 {
-                    Tuple<ParameterInfo, Exception> lastException = null;
-                    foreach (MethodInfo method in methods)
+                    List<object> parameters = new List<object>();
+                    Context = context;
+                    int position = 0;
+                    bool skip = false;
+
+                    foreach (ParameterInfo param in GetMethodParameters(method))
                     {
-                        List<object> parameters = new List<object>();
-                        Context = context;
-                        int position = 0;
-                        bool skip = false;
-
-                        foreach (ParameterInfo param in GetMethodParameters(method))
+                        try
                         {
-                            try
+                            object obj = null;
+                            if (param.IsImplicit() || position < args.Length)
                             {
-                                object obj = null;
-                                if (param.IsImplicit() || position < args.Length)
+                                if (param.IsParams())
                                 {
-                                    if (param.IsParams())
+                                    List<object> thing = new List<object>();
+                                    foreach (string s in args.Skip(position))
                                     {
-                                        List<object> thing = new List<object>();
-                                        foreach (string s in args.Skip(position))
-                                        {
-                                            thing.Add(await ParseParameter(s, param.ParameterType.GetElementType()));
-                                        }
+                                        thing.Add(await ParseParameter(s, param.ParameterType.GetElementType()));
+                                    }
 
-                                        Type type = param.ParameterType.GetElementType();
+                                    Type type = param.ParameterType.GetElementType();
 
-                                        if (type == typeof(string))
-                                        {
-                                            parameters.Add(thing.Cast<string>().ToArray());
-                                        }
-                                        else
-                                        {
-                                            throw new NotSupportedException("Parameter argument type unsupported.");
-                                        }
+                                    if (type == typeof(string))
+                                    {
+                                        parameters.Add(thing.Cast<string>().ToArray());
                                     }
                                     else
                                     {
-                                        obj = await ParseParameter(args.Any() ? args[position] : null, param.ParameterType);
-                                        args = context.Arguments;
-                                        parameters.Add(obj);
+                                        throw new NotSupportedException("Parameter argument type unsupported.");
                                     }
                                 }
                                 else
                                 {
-                                    if (!param.IsOptional)
-                                    {
-                                        throw new CommandException($"Missing argument! {param.Name}");
-                                    }
-                                    else
-                                    {
-                                        parameters.Add(param.DefaultValue);
-                                    }
+                                    obj = await ParseParameter(args.Any() ? args[position] : null, param.ParameterType);
+                                    args = context.Arguments;
+                                    parameters.Add(obj);
                                 }
-
-                                if (!param.IsImplicit())
-                                {
-                                    position += 1;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                lastException = new Tuple<ParameterInfo, Exception>(param, ex);
-                                skip = true;
-                                break;
-                            }
-                        }
-
-                        if (skip)
-                        {
-                            continue;
-                        }
-
-                        try
-                        {
-                            watch.Stop();
-                            object obj = method.Invoke(this, parameters.ToArray());
-                            if(obj is CommandResult c)
-                            {
-                                return c ?? CommandResult.Empty;
-                            }
-                            else if(obj is Task<CommandResult> t)
-                            {
-                                return await t;
                             }
                             else
                             {
-                                return "This should really never happen...";
+                                if (!param.IsOptional)
+                                {
+                                    throw new CommandException($"Missing argument! {param.Name}");
+                                }
+                                else
+                                {
+                                    parameters.Add(param.DefaultValue);
+                                }
+                            }
+
+                            if (!param.IsImplicit())
+                            {
+                                position += 1;
                             }
                         }
                         catch (Exception ex)
                         {
-                            throw ex.InnerException ?? ex;
+                            lastException = new Tuple<ParameterInfo, Exception>(param, ex);
+                            skip = true;
+                            break;
                         }
                     }
 
-                    if (lastException != null)
+                    if (skip)
                     {
-                        throw new BadArgumentsException();
+                        continue;
                     }
-                    else
+
+                    try
                     {
-                        return "Unable to find applicable command method for given arguments.";
+                        object obj = method.Invoke(this, parameters.ToArray());
+                        if (obj is CommandResult c)
+                        {
+                            return c ?? CommandResult.Empty;
+                        }
+                        else if (obj is Task<CommandResult> t)
+                        {
+                            return await t;
+                        }
+                        else
+                        {
+                            return "This should really never happen...";
+                        }
                     }
+                    catch (Exception ex)
+                    {
+                        throw ex.InnerException ?? ex;
+                    }
+                }
+
+                if (lastException != null)
+                {
+                    throw new BadArgumentsException();
                 }
                 else
                 {
-                    return "Unable to find appropriate command method.";
+                    return "Unable to find applicable command method for given arguments.";
                 }
             }
-            finally
+            else
             {
-                Debug.WriteLine(watch.Elapsed);
-                watch.Reset();
+                return "Unable to find appropriate command method.";
             }
         }
 
