@@ -8,7 +8,7 @@ namespace WamBot.Api
     /// Attribute used to provide a command a <see cref="System.Net.Http.HttpClient"/>, requires a constructor that accepts said client.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
-    public sealed class HttpClientAttribute : CommandAttribute
+    public sealed class HttpClientAttribute : BaseCommandAttribute
     {        
         public HttpClientAttribute()
         {

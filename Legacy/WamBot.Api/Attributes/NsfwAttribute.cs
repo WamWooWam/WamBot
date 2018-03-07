@@ -4,7 +4,7 @@ using System.Text;
 
 namespace WamBot.Api
 {
-    public class RequiresGuildAttribute : CommandAttribute
+    class NsfwAttribute : BaseCommandAttribute
     {
     }
 }

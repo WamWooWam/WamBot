@@ -5,7 +5,7 @@ using System.Text;
 namespace WamBot.Api
 {
     [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = true)]
-    public sealed class TriggersTypingAttribute : CommandAttribute
+    public sealed class TriggersTypingAttribute : BaseCommandAttribute
     {
         public bool Triggers => _triggers;
         bool _triggers;

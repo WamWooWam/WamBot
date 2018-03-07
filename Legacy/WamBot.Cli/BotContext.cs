@@ -33,9 +33,7 @@ namespace WamBot.Core
         Timer _saveTimer;
         Timer _statusTimer;
         TelemetryClient _telemetryClient;
-        List<BaseDiscordCommand> _commands = new List<BaseDiscordCommand>();
         List<IParseExtension> _parseExtensions = new List<IParseExtension>();
-        Dictionary<ICommandsAssembly, List<BaseDiscordCommand>> _assemblyCommands = new Dictionary<ICommandsAssembly, List<BaseDiscordCommand>>();
         List<ulong> _processedMessageIds = new List<ulong>();
         ILoggerFactory _loggerFactory = new Data.LoggerFactory();
 
@@ -569,7 +567,7 @@ namespace WamBot.Core
         private BaseDiscordCommand InstantateDiscordCommand(Type type)
         {
             BaseDiscordCommand command = null;
-            IEnumerable<CommandAttribute> attributes = type.GetCustomAttributes<CommandAttribute>(true);
+            IEnumerable<BaseCommandAttribute> attributes = type.GetCustomAttributes<BaseCommandAttribute>(true);
 
             if (!attributes.Any())
             {

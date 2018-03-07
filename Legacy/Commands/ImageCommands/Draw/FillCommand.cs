@@ -16,7 +16,7 @@ namespace ImageCommands.Draw
 
         public override string[] Aliases => new[] { "fill", "clear" };
 
-        [Run]
+        [Command]
         public Task<CommandResult> RunImageCommand([Implicit] Image<Rgba32> image, Rgba32 colour)
         {
             image.Mutate(m => m.Fill(colour));

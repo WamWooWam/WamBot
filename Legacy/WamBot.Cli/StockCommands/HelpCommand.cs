@@ -19,7 +19,7 @@ namespace WamBot.Cli.StockCommands
 
         public override string Usage => "[string alias]";
 
-        [Run]
+        [Command]
         public Task<CommandResult> Run(string alias = null)
         {
             DiscordEmbedBuilder embedBuilder = Context.GetEmbedBuilder();

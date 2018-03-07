@@ -7,7 +7,7 @@ namespace WamBot.Api
     /// <summary>
     /// Defines a parameter as implicitly passed by the command system.
     /// </summary>
-    public class ImplicitAttribute : Attribute
+    public class ImplicitAttribute : BaseCommandAttribute
     {
     }
 }
