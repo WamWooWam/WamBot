@@ -21,6 +21,7 @@ using WamWooWam.Core.Windows;
 
 namespace WamBotRewrite.Commands
 {
+    [RequiresGuild]
     class MusicCommands : CommandCategory
     {
         private static HttpClient _httpClient = new HttpClient();

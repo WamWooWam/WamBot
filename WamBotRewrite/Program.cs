@@ -127,7 +127,8 @@ namespace WamBotRewrite
             Commands.AddRange(new APICommands().GetCommands());
             Commands.AddRange(new MusicCommands().GetCommands());
             Commands.AddRange(new WamCashCommands().GetCommands());
-            ParamConverters.AddRange(new IParamConverter[] { new DiscordChannelParse(), new DiscordUserParse(), new DiscordRoleParse(), new DiscordGuildParse() });
+            Commands.AddRange(new CryptoCommands().GetCommands());
+            ParamConverters.AddRange(new IParamConverter[] { new DiscordChannelParse(), new DiscordUserParse(), new DiscordRoleParse(), new DiscordGuildParse(), new ByteArrayConverter() });
 
             Console.WriteLine($"{Commands.Count} commands and {ParamConverters.Count} converters ready and waiting!");
 
@@ -155,7 +156,7 @@ namespace WamBotRewrite
 
                     foreach (User data in ctx.Users)
                     {
-                        if(Tools.GetHappinessLevel(data.Happiness) == HappinessLevel.Hate)
+                        if (Tools.GetHappinessLevel(data.Happiness) == HappinessLevel.Hate)
                         {
                             data.Happiness = (sbyte)(((int)data.Happiness) + 1)
                                 .Clamp(sbyte.MinValue, sbyte.MaxValue);

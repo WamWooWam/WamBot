@@ -67,11 +67,6 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        private static async Task<User> GetBotUserAsync(CommandContext ctx)
-        {
-            return await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)ctx.Client.CurrentUser.Id, () => new User(ctx.Client.CurrentUser) { Balance = uint.MaxValue });
-        }
-
         [Command("Fine", "Fines a user", new[] { "fine" })]
         [Permissions(UserPermissions = GuildPermission.ManageMessages)]
         public async Task Fine(CommandContext ctx, IUser user, decimal amount)
@@ -183,6 +178,11 @@ namespace WamBotRewrite.Commands
                 ctx.DbContext.Users.Update(send);
                 ctx.DbContext.Users.Update(recieve);
             }
+        }
+
+        private static async Task<User> GetBotUserAsync(CommandContext ctx)
+        {
+            return await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)ctx.Client.CurrentUser.Id, () => new User(ctx.Client.CurrentUser) { Balance = uint.MaxValue });
         }
     }
 }
