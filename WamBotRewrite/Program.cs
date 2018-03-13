@@ -150,15 +150,21 @@ namespace WamBotRewrite
                         ctx.Users.Add(bot);
                         ctx.SaveChanges();
                     }
-                    else
-                    {
-                        ctx.Users.Attach(bot);
-                    }
+                    ctx.Users.Attach(bot);
+
 
                     foreach (User data in ctx.Users)
                     {
-                        data.Happiness = (sbyte)(((int)data.Happiness) - 2)
-                            .Clamp(sbyte.MinValue, sbyte.MaxValue);
+                        if(Tools.GetHappinessLevel(data.Happiness) == HappinessLevel.Hate)
+                        {
+                            data.Happiness = (sbyte)(((int)data.Happiness) + 1)
+                                .Clamp(sbyte.MinValue, sbyte.MaxValue);
+                        }
+                        else
+                        {
+                            data.Happiness = (sbyte)(((int)data.Happiness) - 2)
+                                .Clamp(sbyte.MinValue, sbyte.MaxValue);
+                        }
                     }
 
                     foreach (var p in _store)
@@ -174,17 +180,17 @@ namespace WamBotRewrite
                                 {
                                     d = new User(u);
                                     ctx.Users.Add(d);
-                                }
-                                else
-                                {
-                                    ctx.Attach(d);
+                                    ctx.SaveChanges();
                                 }
 
+                                ctx.Attach(d);
+
+                                bot.Balance -= p.Value;
                                 d.Balance += p.Value;
 
                                 Transaction t = new Transaction(bot, d, p.Value, "Hourly Payment");
                                 ctx.Transactions.Add(t);
-                            } 
+                            }
                         }
                     }
 
@@ -309,9 +315,9 @@ namespace WamBotRewrite
                 _processedMessageIds.Add(message.Id);
                 //if (command.ArgumentCountPrecidate(commandSegments.Count()))
                 //{
-                if (await Tools.CheckPermissions(Client, (message.Channel is IGuildChannel c ? (IUser)(await c.Guild?.GetCurrentUserAsync()) : (IUser)Client.CurrentUser), channel, command))
+                if (Tools.CheckPermissions(Client, (message.Channel is IGuildChannel c ? (IUser)(await c.Guild?.GetCurrentUserAsync()) : (IUser)Client.CurrentUser), channel, command))
                 {
-                    if (await Tools.CheckPermissions(Client, author, channel, command))
+                    if (Tools.CheckPermissions(Client, author, channel, command))
                     {
                         Console.WriteLine($"[{(message.Channel is IGuildChannel ch ? ch.Guild?.Name : message.Channel.Name)}] Running command \"{command.Name}\" asynchronously.");
                         new Task(async () => await RunCommandAsync(message, author, channel, commandSegments, commandAlias, command, start)).Start();
@@ -349,8 +355,8 @@ namespace WamBotRewrite
 
                 using (WamBotContext db = new WamBotContext())
                 {
-                    CommandContext context = new CommandContext(commandSegments.ToArray(), message, _client);
-                    User data = await db.Users.GetOrCreateAsync((long)author.Id, () => new User(author));
+                    CommandContext context = new CommandContext(commandSegments.ToArray(), message, _client, db);
+                    User data = await db.Users.GetOrCreateAsync(db, (long)author.Id, () => new User(author));
                     context.UserData = data;
 
                     string[] cmdsegarr = commandSegments.ToArray();

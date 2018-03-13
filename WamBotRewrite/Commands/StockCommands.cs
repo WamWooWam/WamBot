@@ -100,7 +100,7 @@ namespace WamBotRewrite.Commands
         }
 
         [Command("Me", "Here's what I know about you.", new[] { "me", "bal", "happiness" })]
-        public async Task Happiness(CommandContext ctx)
+        public async Task Me(CommandContext ctx)
         {
             EmbedBuilder builder = ctx.GetEmbedBuilder(ctx.Author.Username)
                 .WithThumbnailUrl(ctx.Author.GetAvatarUrl());
@@ -112,10 +112,23 @@ namespace WamBotRewrite.Commands
             await ctx.Channel.SendMessageAsync("", false, builder.Build());
         }
 
-        [Command("Disposition", "Here's what I think of everyone.", new[] { "disposiion" })]
+        [OwnerOnly]
+        [Command("Disposition", "Here's what I think of everyone.", new[] { "disposition" })]
         public async Task Disposition(CommandContext ctx)
         {
+            StringBuilder builder = new StringBuilder();
+            builder.AppendLine("```");
+            builder.AppendLine(" --- Disposition ---");
 
+            foreach(var u in ctx.DbContext.Users)
+            {
+                var us = ctx.Client.GetUser((ulong)u.UserId);
+                builder.AppendLine($"{us.Username}#{us.Discriminator} - {Tools.GetHappinessLevel(u.Happiness)} ({u.Happiness})");
+            }
+
+            builder.AppendLine("```");
+
+            await ctx.ReplyAsync(builder.ToString());
         }
 
         [Command("Dice", "Take a risk, roll the dice...", new[] { "roll" })]
@@ -357,7 +370,7 @@ namespace WamBotRewrite.Commands
                 var commands = Program.Commands.Where(c => c.Aliases.Contains(name.ToLowerInvariant()));
                 foreach (var command in commands)
                 {
-                    if (await Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
+                    if (Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
                     {
                         builder = ctx.GetEmbedBuilder(command.Name);
                         builder.AddField("Description", command.Description, true);
@@ -382,9 +395,9 @@ namespace WamBotRewrite.Commands
                     {
                         builder = ctx.GetEmbedBuilder(category.Key.Name)
                             .WithDescription(category.Key.Description);
-                        foreach (var command in category)
+                        foreach (var command in category.OrderBy(c => c.Aliases.First()))
                         {
-                            if (await Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
+                            if (Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
                             {
                                 builder.AddField(command.Name, command.Description, true);
                             }
@@ -405,19 +418,19 @@ namespace WamBotRewrite.Commands
                     str.Append("`");
 
                     bool first = true;
-                    foreach (var command in cat)
+                    foreach (var command in cat.OrderBy(c => c.Aliases.First()))
                     {
-                        if (!first)
+                        if (Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
                         {
-                            str.Append(", ");
-                        }
-                        else
-                        {
-                            first = !first;
-                        }
+                            if (!first)
+                            {
+                                str.Append(", ");
+                            }
+                            else
+                            {
+                                first = !first;
+                            }
 
-                        if (await Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
-                        {
                             str.Append(command.Aliases.First());
                         }
                     }

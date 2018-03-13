@@ -36,6 +36,7 @@ namespace WamBotRewrite.Data
         [InverseProperty("To")]
         public List<Transaction> TransactionsRecieved { get; set; }
 
-        public IEnumerable<Transaction> Transactions => TransactionsSent.Concat(TransactionsRecieved).OrderBy(t => t.TimeStamp);
+        [NotMapped]
+        public ICollection<Transaction> Transactions => TransactionsSent.Concat(TransactionsRecieved).OrderBy(t => t.TimeStamp).ToList();
     }
 }

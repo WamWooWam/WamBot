@@ -34,15 +34,11 @@ namespace WamBotRewrite.Migrations
 
                     b.Property<long>("ToUserId");
 
-                    b.Property<long?>("UserId");
-
                     b.HasKey("TransactionId");
 
                     b.HasIndex("FromUserId");
 
                     b.HasIndex("ToUserId");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("Transactions");
                 });
@@ -74,10 +70,6 @@ namespace WamBotRewrite.Migrations
                         .WithMany("TransactionsRecieved")
                         .HasForeignKey("ToUserId")
                         .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("WamBotRewrite.Data.User")
-                        .WithMany("Transactions")
-                        .HasForeignKey("UserId");
                 });
 #pragma warning restore 612, 618
         }

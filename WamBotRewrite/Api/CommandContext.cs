@@ -17,11 +17,12 @@ namespace WamBotRewrite.Api
         private TaskCompletionSource<IMessage> _replyCompletionSource;
         private DiscordSocketClient _client;
 
-        internal CommandContext(string[] args, IMessage msg, DiscordSocketClient client)
+        internal CommandContext(string[] args, IMessage msg, DiscordSocketClient client, WamBotContext db)
         {
             Arguments = args;
             Message = msg;
             _client = client;
+            DbContext = db;
         }
 
         /// <summary>
@@ -57,6 +58,8 @@ namespace WamBotRewrite.Api
             get => _client;
             internal set => _client = value;
         }
+
+        public WamBotContext DbContext { get; private set; }
 
         public Dictionary<string, object> AdditionalData { get; private set; } = new Dictionary<string, object>();
 

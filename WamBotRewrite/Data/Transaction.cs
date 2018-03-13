@@ -15,7 +15,9 @@ namespace WamBotRewrite.Data
         public Transaction(User from, User to, decimal amount, string reason = null)
         {
             From = from;
+            FromUserId = from.UserId;
             To = to;
+            ToUserId = to.UserId;
             Amount = amount;
             Reason = reason;
             TimeStamp = DateTimeOffset.Now; 

@@ -138,12 +138,4 @@ namespace WamBot.Api
     }
 
 
-    public enum HappinessLevel
-    {
-        Hate,
-        Dislike,
-        Indifferent,
-        Like,
-        Adore
-    }
 }

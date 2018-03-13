@@ -32,8 +32,7 @@ namespace WamBotRewrite.Migrations
                     FromUserId = table.Column<long>(nullable: false),
                     Reason = table.Column<string>(nullable: true),
                     TimeStamp = table.Column<DateTimeOffset>(nullable: false),
-                    ToUserId = table.Column<long>(nullable: false),
-                    UserId = table.Column<long>(nullable: true)
+                    ToUserId = table.Column<long>(nullable: false)
                 },
                 constraints: table =>
                 {
@@ -50,12 +49,6 @@ namespace WamBotRewrite.Migrations
                         principalTable: "Users",
                         principalColumn: "UserId",
                         onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Transactions_Users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "Users",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(
@@ -67,11 +60,6 @@ namespace WamBotRewrite.Migrations
                 name: "IX_Transactions_ToUserId",
                 table: "Transactions",
                 column: "ToUserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Transactions_UserId",
-                table: "Transactions",
-                column: "UserId");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

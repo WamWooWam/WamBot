@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace WamBotRewrite.Data
 {
-    class WamBotContext : DbContext
+    public class WamBotContext : DbContext
     {
         private static bool init = false;
 
@@ -22,13 +22,11 @@ namespace WamBotRewrite.Data
             modelBuilder.
                 Entity<Transaction>()
                 .HasOne(t => t.To)
-                .WithMany(u => u.TransactionsRecieved)
-                .HasForeignKey(t => t.ToUserId);
+                .WithMany(u => u.TransactionsRecieved);
 
             modelBuilder.Entity<Transaction>()
                 .HasOne(t => t.From)
-                .WithMany(u => u.TransactionsSent)
-                .HasForeignKey(t => t.FromUserId);
+                .WithMany(u => u.TransactionsSent);
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

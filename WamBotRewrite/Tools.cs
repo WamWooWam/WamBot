@@ -37,13 +37,13 @@ namespace WamBotRewrite
             }).Start();
         }
 
-        internal static async Task<bool> CheckPermissions(DiscordSocketClient client, IUser author, ISocketMessageChannel channel, CommandRunner command)
+        internal static bool CheckPermissions(DiscordSocketClient client, IUser author, ISocketMessageChannel channel, CommandRunner command)
         {
             bool go = true;
 
             if (command.OwnerOnly)
             {
-                if (author.Id == (await client.GetApplicationInfoAsync()).Owner.Id || author.Id == client.CurrentUser.Id)
+                if (author.Id == Program.Application.Owner.Id || author.Id == client.CurrentUser.Id)
                 {
                     return true;
                 }
@@ -67,14 +67,17 @@ namespace WamBotRewrite
             return go;
         }
 
-        public static async Task<T> GetOrCreateAsync<T>(this DbSet<T> db, object key, Func<T> createPrecidate) where T : class, new()
+        public static async Task<T> GetOrCreateAsync<T>(this DbSet<T> db, DbContext ctx, object key, Func<T> createPrecidate) where T : class
         {
             T value = await db.FindAsync(key);
             if (value == null)
             {
                 value = createPrecidate();
                 await db.AddAsync(value);
+                await ctx.SaveChangesAsync();
             }
+
+            db.Attach(value);
 
             return value;
         }
