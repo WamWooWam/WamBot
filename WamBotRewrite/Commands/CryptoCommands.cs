@@ -63,38 +63,49 @@ namespace WamBotRewrite.Commands
         [Command("AES Encrypt", "Encrypts a string using AES with a specified key.", new[] { "aesenc" })]
         public async Task AESEncrypt(CommandContext ctx, string str, byte[] key = null)
         {
+            var stopwatch = Stopwatch.StartNew();
             using (var aes = new RijndaelManaged() { Mode = CipherMode.CBC, Padding = PaddingMode.PKCS7 })
             {
-                if (key == null)
-                {
-                    aes.GenerateKey();
-                    key = aes.Key;
-                }
-                else
-                {
-                    aes.Key = key;
-                }
-
-                aes.IV = Convert.FromBase64String("93/pCmMpbtCBycd6jZlppA==");
-
                 var builder = ctx.GetEmbedBuilder("AES");
                 builder.AddField("Input String", $"```{str}```");
                 builder.AddField("Key", $"```{Convert.ToBase64String(key)}```");
 
-                using (var encryptor = aes.CreateEncryptor())
+                try
                 {
-                    using (var memoryStream = new MemoryStream())
+                    if (key == null)
                     {
-                        using (var cryptoStream = new CryptoStream(memoryStream, encryptor, CryptoStreamMode.Write))
-                        {
-                            cryptoStream.Write(Encoding.UTF8.GetBytes(str), 0, Encoding.UTF8.GetByteCount(str));
-                            cryptoStream.FlushFinalBlock();
-                        }
+                        aes.GenerateKey();
+                        key = aes.Key;
+                    }
+                    else
+                    {
+                        aes.Key = key;
+                    }
 
-                        builder.AddField("Encrypted Output", $"```{Convert.ToBase64String(memoryStream.ToArray())}```");
+                    aes.IV = Convert.FromBase64String("93/pCmMpbtCBycd6jZlppA==");
+
+                    using (var encryptor = aes.CreateEncryptor())
+                    {
+                        using (var memoryStream = new MemoryStream())
+                        {
+                            using (var cryptoStream = new CryptoStream(memoryStream, encryptor, CryptoStreamMode.Write))
+                            {
+                                cryptoStream.Write(Encoding.UTF8.GetBytes(str), 0, Encoding.UTF8.GetByteCount(str));
+                                cryptoStream.FlushFinalBlock();
+                            }
+
+                            builder.AddField("Encrypted Output", $"```{Convert.ToBase64String(memoryStream.ToArray())}```");
+                        }
                     }
                 }
+                catch (CryptographicException ex)
+                {
+                    builder.AddField("Crypto Error", $"```{ex.Message}```");
+                }
 
+                builder
+                    .WithFooter($"Encrypted in {stopwatch.ElapsedMilliseconds}ms")
+                    .WithCurrentTimestamp();
                 await ctx.ReplyAsync(string.Empty, emb: builder.Build());
             }
         }
@@ -102,6 +113,7 @@ namespace WamBotRewrite.Commands
         [Command("AES Decrypt", "Decrypts a string using AES with a specified key.", new[] { "aesdec" })]
         public async Task AESDecrypt(CommandContext ctx, byte[] data, byte[] key)
         {
+            var stopwatch = Stopwatch.StartNew();
             using (var aes = new RijndaelManaged() { Mode = CipherMode.CBC, Padding = PaddingMode.PKCS7 })
             {
                 var builder = ctx.GetEmbedBuilder("AES");
@@ -133,6 +145,9 @@ namespace WamBotRewrite.Commands
                     builder.AddField("Crypto Error", $"```{ex.Message}```");
                 }
 
+                builder
+                    .WithFooter($"Encrypted in {stopwatch.ElapsedMilliseconds}ms")
+                    .WithCurrentTimestamp();
                 await ctx.ReplyAsync(string.Empty, emb: builder.Build());
             }
         }
