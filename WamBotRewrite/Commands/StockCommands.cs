@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -52,6 +53,71 @@ namespace WamBotRewrite.Commands
             await ctx.ReplyAsync($"Hola! My ping's currently {Program.Client.Latency}ms!");
         }
 
+        [Command("Pet", "Pets me!", new[] { "pet" })]
+        public async Task Pet(CommandContext ctx)
+        {
+            string[] sadResponses = new string[] { "No.", "I'm not in the mood for this.", "Better than `hit` i suppose...", "I can't be bothered.", "Fuck off", $"You can fuck right off." };
+            string[] dislikeResponses = new string[] { "Do I have to?", "Why now??", "You're not great at this.", "I can't be bothered.", $"Thanks I guess.", "Ugh", "I don't wanna know where that hand's been." };
+            string[] regularResponses = new string[] { "Mew.", @"\*purrs\*", "<3", "You're getting good at this!", $"Thank you, {ctx.Author.Username}!" };
+            string[] happyResponses = new string[] { "Mew!", @"\*purrs happily\*", $"I <3 {ctx.Author.Username}", "You're the best!", $"Thanks a ton, {ctx.Author.Username}!" };
+
+            switch (ctx.HappinessLevel)
+            {
+                case HappinessLevel.Hate:
+                    ctx.Happiness += 1;
+                    await ctx.ReplyAsync(sadResponses[_random.Next(sadResponses.Length)]);
+                    break;
+                case HappinessLevel.Dislike:
+                    ctx.Happiness += 2;
+                    await ctx.ReplyAsync(dislikeResponses[_random.Next(dislikeResponses.Length)]);
+                    break;
+                case HappinessLevel.Indifferent:
+                case HappinessLevel.Like:
+                    ctx.Happiness += 3;
+                    await ctx.ReplyAsync(regularResponses[_random.Next(regularResponses.Length)]);
+                    break;
+                case HappinessLevel.Adore:
+                    ctx.Happiness += 4;
+                    await ctx.ReplyAsync(happyResponses[_random.Next(happyResponses.Length)]);
+                    break;
+            }
+        }
+
+        [Command("Hit", "No! Don't do it!", new[] { "hit" })]
+        public async Task Hit(CommandContext ctx)
+        {
+            ctx.Happiness -= 10;
+            if (ctx.HappinessLevel >= HappinessLevel.Like)
+            {
+                var strs = new[] { "Ouch!", "How could you!?", "What did I do?!", "I'm sorry! I promise I'll do better!", "No way!", "What?!" };
+                await ctx.ReplyAsync(strs[_random.Next(0, 6)]);
+            }
+            else
+            {
+                var strs = new[] { "Ow!", "That hurts!", "Ouch!", "Help me!", "Fuck off!", "Shit!" };
+                await ctx.ReplyAsync(strs[_random.Next(0, 6)]);
+            }
+        }
+
+        [Command("Me", "Here's what I know about you.", new[] { "me", "bal", "happiness" })]
+        public async Task Happiness(CommandContext ctx)
+        {
+            EmbedBuilder builder = ctx.GetEmbedBuilder(ctx.Author.Username)
+                .WithThumbnailUrl(ctx.Author.GetAvatarUrl());
+
+            builder.AddField("Happiness", $"{ctx.HappinessLevel} ({ctx.Happiness})", true);
+            builder.AddField("Balance", $"W${ctx.UserData.Balance:N2}", true);
+            builder.AddField("Commands Run", ctx.UserData.CommandsRun.ToString(), true);
+
+            await ctx.Channel.SendMessageAsync("", false, builder.Build());
+        }
+
+        [Command("Disposition", "Here's what I think of everyone.", new[] { "disposiion" })]
+        public async Task Disposition(CommandContext ctx)
+        {
+
+        }
+
         [Command("Dice", "Take a risk, roll the dice...", new[] { "roll" })]
         public async Task Dice(CommandContext ctx, string str)
         {
@@ -72,7 +138,7 @@ namespace WamBotRewrite.Commands
                             builder.Append($"{_random.Next(1, max + 1)}, ");
                         }
 
-                        builder.Append(_random.Next(max));
+                        builder.Append(_random.Next(1, max + 1));
                         builder.Append("!");
                         await ctx.ReplyAsync(builder.ToString());
                         return;
@@ -206,6 +272,31 @@ namespace WamBotRewrite.Commands
             }
 
             await ctx.Channel.SendMessageAsync("", false, builder.Build());
+        }
+
+        [OwnerOnly]
+        [Command("Command Info", "Returns info on a specific command", new[] { "command" })]
+        public async Task CommandInfo(CommandContext ctx, string commandName)
+        {
+            IEnumerable<CommandRunner> foundCommands = Program.Commands.Where(c => c?.Aliases?.Any(a => a.ToLower() == commandName) == true);
+            foreach (var command in foundCommands)
+            {
+                EmbedBuilder builder = ctx.GetEmbedBuilder(command.Name);
+                builder.AddField("Name", command.Name);
+                builder.AddField("Description", command.Description, true);
+                builder.AddField("Extended Description", string.IsNullOrWhiteSpace(command.ExtendedDescription) ? "Unavailable" : command.ExtendedDescription, true);
+                builder.AddField("Aliases", string.Join(", ", command.Aliases), true);
+                builder.AddField("Usage", $"```cs\r\n{Program.Config.Prefix}{command.Aliases.First()} {command.Usage}\r\n```");
+
+                builder.AddField("Method Name", $"`{command._method.Name}`", true);
+                builder.AddField("Method Parameter Count", command._method.GetParameters().Count().ToString(), true);
+                builder.AddField("Method Return Type", $"`{command._method.ReturnType.FullName}`");
+                builder.AddField("Method Declaring Type", $"`{command._method.DeclaringType.FullName}`");
+                builder.AddField("Method Declaring Assembly", $"`{command._method.DeclaringType.Assembly.FullName}`");
+                builder.AddField("Method Declaration", $"```cs\r\n{Tools.GetMethodDeclaration(command._method)}\r\n```");
+
+                await ctx.Channel.SendMessageAsync("", embed: builder.Build());
+            }
         }
 
         [Command("Stats", "Mildly uninteresting info and data about my current state.", new[] { "stats", "info", "about" })]

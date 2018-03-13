@@ -46,7 +46,6 @@ namespace MusicCommands
                     mixer.AddInputStream(new Wave16ToFloatProvider(new VolumeWaveProvider16(connection.RecordBuffer) { Volume = 0.1f }));
 
                     path = Path.ChangeExtension(Path.GetTempFileName(), ".wav");
-
                     recorder = new WaveRecorder(mixer, path);
                     model = connection;
 

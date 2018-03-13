@@ -12,17 +12,26 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Discord.Net.WebSocket" Version="2.0.0-beta2-00896" />
     <PackageReference Include="Microsoft.ApplicationInsights" Version="2.5.1" />
     <PackageReference Include="Microsoft.ApplicationInsights.WindowsServer" Version="2.5.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" Version="2.1.0-preview1-final" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" Version="2.0.1" />
     <PackageReference Include="NAudio" Version="1.8.4" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="1.1.10-pre20180223200113" />
+    <PackageReference Include="SQLitePCLRaw.provider.e_sqlite3.net45" Version="1.1.10-pre20180223200113" />
     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
     <PackageReference Include="taglib" Version="2.1.0" />
+    
+    <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools" Version="2.0.1" />
+    <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools.DotNet" Version="2.0.1" />
+
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\Desktop\WamWooWam.Core\WamWooWam.Core\WamWooWam.Core.csproj" />
+    <ProjectReference Include="..\..\Discord.Net\src\Discord.Net.Core\Discord.Net.Core.csproj" />
+    <ProjectReference Include="..\..\Discord.Net\src\Discord.Net.Rest\Discord.Net.Rest.csproj" />
+    <ProjectReference Include="..\..\Discord.Net\src\Discord.Net.WebSocket\Discord.Net.WebSocket.csproj" />
   </ItemGroup>
 
   <ItemGroup>

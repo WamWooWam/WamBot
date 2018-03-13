@@ -34,10 +34,11 @@ namespace WamBotRewrite.Api
             { typeof(short), "short" },
             { typeof(ushort), "ushort" },
             { typeof(string), "string" },
+            { typeof(void), "void" }
         };
 
 
-        private MethodInfo _method;
+        internal MethodInfo _method;
         private CommandAttribute _commandAttribute;
         private PermissionsAttribute _permissionsAttribute;
         private bool _ownerOnly;
@@ -86,22 +87,7 @@ namespace WamBotRewrite.Api
                 {
                     if (!p.IsImplicit())
                     {
-                        if (p.IsParams())
-                        {
-                            b.Append("params ");
-                        }
-
-                        b.Append($"{PrettyTypeName(p.ParameterType)} {p.Name}");
-
-                        if (p.IsOptional)
-                        {
-                            b.Append($" = {p.DefaultValue ?? "null"}");
-                        }
-
-                        if (p.Position != param.Length)
-                        {
-                            b.Append(", ");
-                        }
+                        AppendParameter(param, b, p);
                     }
                 }
 
@@ -164,7 +150,7 @@ namespace WamBotRewrite.Api
                     {
                         position += 1;
                     }
-                } 
+                }
             }
 
             try
@@ -255,7 +241,28 @@ namespace WamBotRewrite.Api
             }
         }
 
-        private static string PrettyTypeName(Type t)
+        internal static void AppendParameter(ParameterInfo[] param, StringBuilder b, ParameterInfo p, bool usage = true)
+        {
+            if (p.IsParams())
+            {
+                b.Append("params ");
+            }
+
+            b.Append($"{PrettyTypeName(p.ParameterType)} {p.Name}");
+
+            if (p.IsOptional)
+            {
+                b.Append($" = {p.DefaultValue ?? "null"}");
+            }
+
+            if (p.Position != (usage ? param.Length : param.Length - 1))
+            {
+                b.Append(", ");
+            }
+        }
+
+
+        internal static string PrettyTypeName(Type t)
         {
             if (_typeKeywords.ContainsKey(t))
             {
@@ -264,10 +271,17 @@ namespace WamBotRewrite.Api
 
             if (t.IsGenericType)
             {
-                return string.Format(
-                    "{0}<{1}>",
-                    t.Name.Substring(0, t.Name.LastIndexOf("`", StringComparison.InvariantCulture)),
-                    string.Join(", ", t.GetGenericArguments().Select(PrettyTypeName)));
+                if (t.GetGenericTypeDefinition() != typeof(Nullable<>))
+                {
+                    return string.Format(
+                        "{0}<{1}>",
+                        t.Name.Substring(0, t.Name.LastIndexOf("`", StringComparison.InvariantCulture)),
+                        string.Join(", ", t.GetGenericArguments().Select(PrettyTypeName)));
+                }
+                else
+                {
+                    return $"{PrettyTypeName(t.GetGenericArguments().First())}?";
+                }
             }
 
             return t.Name;

@@ -23,9 +23,9 @@ namespace WamBotRewrite.Commands
 {
     class MusicCommands : CommandCategory
     {
-        static HttpClient _httpClient = new HttpClient();
+        private static HttpClient _httpClient = new HttpClient();
         private static Lazy<MD5> _md5 = new Lazy<MD5>(() => MD5.Create());
-        static readonly ConcurrentDictionary<ulong, ConnectionModel> activeConnections = new ConcurrentDictionary<ulong, ConnectionModel>();
+        private static readonly ConcurrentDictionary<ulong, ConnectionModel> _activeConnections = new ConcurrentDictionary<ulong, ConnectionModel>();
 
         public override string Name => "Music";
 
@@ -38,11 +38,11 @@ namespace WamBotRewrite.Commands
             {
                 if (guildUser.VoiceChannel != null)
                 {
-                    if (!activeConnections.ContainsKey(guildUser.GuildId))
+                    if (!_activeConnections.ContainsKey(guildUser.GuildId))
                     {
                         var client = await guildUser.VoiceChannel.ConnectAsync();
-                        ConnectionModel model = new ConnectionModel(client);
-                        activeConnections[guildUser.GuildId] = model;
+                        ConnectionModel model = new ConnectionModel(client, guildUser.VoiceChannel, ctx);
+                        _activeConnections[guildUser.GuildId] = model;
 
                         await ctx.ReplyAsync($"Connected to {guildUser.VoiceChannel.Name}!");
                         await MusicPlayLoop(ctx.Channel, model);
@@ -75,13 +75,162 @@ namespace WamBotRewrite.Commands
                 await connection.Connection.StopAsync();
                 await ctx.ReplyAsync("Disconnected!");
 
-                activeConnections.TryRemove(ctx.Guild.Id, out _);
+                _activeConnections.TryRemove(ctx.Guild.Id, out _);
+            }
+        }
+
+        [Command("Stats", "Shows statistics about my current voice connection.", new[] { "mstats" })]
+        public async Task Stats(CommandContext ctx)
+        {
+            ConnectionModel connection;
+            if ((connection = await GetConnectionModelAsync(ctx)) != null)
+            {
+                EmbedBuilder builder = ctx.GetEmbedBuilder("Voice Stats");
+                Process process = Process.GetCurrentProcess();
+
+                builder.AddField("Region", connection.Channel.Guild.VoiceRegionId, true);
+                builder.AddField("WS Ping", $"{connection.Connection.Latency}ms", true);
+                builder.AddField("UDP Ping", $"{connection.Connection.UdpLatency}ms", true);
+                builder.AddField("Connection Duration", (DateTime.Now - connection.ConnectTime).ToString(), true);
+                builder.AddField("Bitrate", connection.Channel.Bitrate.ToString(), true);
+                builder.AddField("Recording", connection.Recording.ToString(), true);
+
+                await ctx.Channel.SendMessageAsync(string.Empty, embed: builder.Build());
+            }
+        }
+
+        [Command("Download", "Returns the currently playing song as an MP3.", new[] { "mp3", "dl" })]
+        public async Task Download(CommandContext ctx)
+        {
+            ConnectionModel connection;
+            if ((connection = await GetConnectionModelAsync(ctx)) != null)
+            {
+                using (MediaFoundationReader reader = new MediaFoundationReader(connection.NowPlaying.FilePath))
+                {
+                    string file = Path.Combine(Path.GetTempPath(), $"{connection.NowPlaying}.mp3");
+                    if (File.Exists(file))
+                    {
+                        await ctx.Channel.SendFileAsync(file, "Here's your song!");
+                    }
+                    else
+                    {
+                        MediaFoundationEncoder.EncodeToMp3(reader, file);
+                        using (TagLib.File tag = TagLib.File.Create(file))
+                        {
+                            tag.Tag.Title = connection.NowPlaying.Title;
+                            tag.Tag.Album = connection.NowPlaying.Album;
+                            tag.Tag.AlbumArtists = new string[] { connection.NowPlaying.Artist };
+                            // tag.Tag.Pictures = new TagLib.IPicture[] { new TagLib.Picture(connection.NowPlaying.ThumbnailPath) };
+                            tag.Save();
+                        }
+
+                        await ctx.Channel.SendFileAsync(file, "Here's your song!");
+                    }
+                }
+            }
+        }
+
+        [Command("Volume", "Adjusts the volume.", new[] { "vol", "volume" })]
+        public async Task Volume(CommandContext ctx, float? v = null)
+        {
+            ConnectionModel connection;
+            if ((connection = await GetConnectionModelAsync(ctx)) != null)
+            {
+                if (v != null && v != float.NaN)
+                {
+                    if (v > 2)
+                    {
+                        v = v / 100;
+                    }
+
+                    if (v > 2 && ctx.Author.Id != Program.Application.Owner.Id)
+                    {
+                        await ctx.ReplyAsync("Let's not kill people's ears eh?");
+                        return;
+                    }
+
+                    if (v < 0.01 && ctx.Author.Id != Program.Application.Owner.Id)
+                    {
+                        await ctx.ReplyAsync("Little quiet don't you think?");
+                        return;
+                    }
+
+                    connection.Volume = v.Value;
+                    await ctx.ReplyAsync($"Volume set to {v * 100}%.");
+                }
+                else
+                {
+                    await ctx.ReplyAsync($"Current volume is {connection.Volume * 100}%");
+                }
+            }
+        }
+
+        [Command("Now Playing", "Get info on what I'm currently playing.", new[] { "playing" })]
+        public async Task NowPlaying(CommandContext ctx)
+        {
+            ConnectionModel connection;
+            if ((connection = await GetConnectionModelAsync(ctx)) != null)
+            {
+                EmbedBuilder builder = ctx.GetEmbedBuilder("Now Playing");
+                if (connection.NowPlaying != null)
+                {
+                    SongModel song = connection.NowPlaying;
+                    StringBuilder str = new StringBuilder();
+                    bool album = false;
+
+                    if (!string.IsNullOrWhiteSpace(song.Album))
+                    {
+                        album = true;
+                        str.Append(song.Album);
+                    }
+                    if (!string.IsNullOrWhiteSpace(song.Artist))
+                    {
+                        if (album)
+                        {
+                            str.Append(" - ");
+                        }
+                        str.Append(song.Artist);
+                    }
+
+                    string details = str.ToString();
+                    builder.AddField(song.Title, string.IsNullOrWhiteSpace(details) ? "No additional details" : details);
+                    if (!string.IsNullOrWhiteSpace(song.Description))
+                    {
+                        builder.AddField("Description", song.Description.Length < 256 ? song.Description : song.Description.Substring(0, 252) + "...");
+                    }
+                    builder.AddField("Elapsed", $"{connection.Elapsed.ToString(@"mm\:ss")}/{(connection.NowPlaying.Duration ?? connection.Total).ToString(@"mm\:ss")}", true);
+                    builder.AddField("Queued by", song.User.Mention, true);
+
+                    if (!string.IsNullOrWhiteSpace(song.Source))
+                    {
+                        builder.AddField("Source", song.Source, true);
+                    }
+
+                    if (File.Exists(connection.NowPlaying.ThumbnailPath))
+                    {
+                        builder.WithThumbnailUrl($"attachment://{Path.GetFileName(connection.NowPlaying.ThumbnailPath)}");
+                        await ctx.Channel.SendFileAsync(connection.NowPlaying.ThumbnailPath, embed: builder.Build());
+                        return;
+                    }
+                    else
+                    {
+                        await ctx.Channel.SendMessageAsync(string.Empty, embed: builder.Build());
+                        return;
+                    }
+                }
+                else
+                {
+                    builder.AddField("Nothing playing!", "Nothing's playing right now! Queue up some songs!");
+                }
+
+                await ctx.Channel.SendMessageAsync(string.Empty, embed: builder.Build());
+
             }
         }
 
         [IgnoreArguments]
         [Command("Queue", "Queues a song for me to play.", new[] { "queue", "play" })]
-        public async Task Command(CommandContext ctx)
+        public async Task Queue(CommandContext ctx)
         {
             string[] args = ctx.Arguments;
 
@@ -338,6 +487,25 @@ namespace WamBotRewrite.Commands
             }
         }
 
+        [Command("Record", "Records the current goings on within a voice channel.", new[] { "rec", "record" })]
+        public async Task Record(CommandContext ctx)
+        {
+            ConnectionModel connection;
+            if ((connection = await GetConnectionModelAsync(ctx)) != null)
+            {
+                if (connection.Recording)
+                {
+                    var message = await ctx.ReplyAsync("Processing your ~~clusterfuck~~ recording...");
+                    connection.Recording = false;
+                }
+                else
+                {
+                    await ctx.ReplyAsync("Now recording...");
+                    await connection.StartRecordingAsync();
+                }
+            }
+        }
+
         #region Tools
         private static async Task MusicPlayLoop(IMessageChannel channel, ConnectionModel connection)
         {
@@ -425,7 +593,7 @@ namespace WamBotRewrite.Commands
         private static void DownloadAndWait(Uri uri, string id, bool native)
         {
             ProcessStartInfo info = new ProcessStartInfo("cmd", $"/c \"{Path.Combine(Directory.GetCurrentDirectory(), "youtube-dl.exe")} " +
-                $"-v {(native ? "" : "--write-info-json")} {(File.Exists(Path.Combine(Path.GetTempPath(), id + ".aac")) ? "--skip-download" : "")} -r 512K -f m4a/aac/bestaudio/worst --hls-prefer-ffmpeg -4 --extract-audio --audio-format m4a --audio-quality 128K {uri} -o {Path.Combine(Path.GetTempPath(), id + ".%(ext)s")}\"")
+                $"-v {(native ? "" : "--write-info-json")} {(File.Exists(Path.Combine(Path.GetTempPath(), id + ".aac")) ? "--skip-download" : "")} -f m4a/aac/bestaudio/worst --hls-prefer-ffmpeg -4 --extract-audio --audio-format m4a --audio-quality 128K {uri} -o {Path.Combine(Path.GetTempPath(), id + ".%(ext)s")}\"")
             {
                 WindowStyle = ProcessWindowStyle.Normal,
                 CreateNoWindow = false,
@@ -454,7 +622,7 @@ namespace WamBotRewrite.Commands
             {
                 if (guildUser.VoiceChannel != null || guildUser.Id == Program.Application.Owner.Id)
                 {
-                    if (activeConnections.TryGetValue(guildUser.Guild.Id, out var connection))
+                    if (_activeConnections.TryGetValue(guildUser.Guild.Id, out var connection))
                     {
                         return connection;
                     }
@@ -475,7 +643,7 @@ namespace WamBotRewrite.Commands
                 await ctx.ReplyAsync("I'll need to be in a guild to do this!");
                 return null;
             }
-        } 
+        }
         #endregion
     }
 }

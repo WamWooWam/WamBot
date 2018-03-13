@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -98,6 +99,7 @@ namespace WamBotRewrite
             {
                 LogLevel = LogSeverity.Debug
             });
+            _restClient.Log += DiscordClient_Log;
 
             await _restClient.LoginAsync(TokenType.Bot, _config.Token);
 
@@ -124,13 +126,102 @@ namespace WamBotRewrite
             Commands.AddRange(new StockCommands().GetCommands());
             Commands.AddRange(new APICommands().GetCommands());
             Commands.AddRange(new MusicCommands().GetCommands());
+            Commands.AddRange(new WamCashCommands().GetCommands());
             ParamConverters.AddRange(new IParamConverter[] { new DiscordChannelParse(), new DiscordUserParse(), new DiscordRoleParse(), new DiscordGuildParse() });
 
             Console.WriteLine($"{Commands.Count} commands and {ParamConverters.Count} converters ready and waiting!");
 
-            _client.MessageReceived += DiscordClient_MessageReceived;
+            _client.MessageReceived += WamCash_MessageRecieve;
+            _client.MessageReceived += ProcessComand_MessageRecieve;
+
+            var saveTimer = Tools.CreateTimer(TimeSpan.FromMinutes(5), (s, e) =>
+            {
+                File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
+            });
+
+            var happinessTickdown = Tools.CreateTimer(TimeSpan.FromMinutes(60), (s, e) =>
+            {
+                using (WamBotContext ctx = new WamBotContext())
+                {
+                    User bot = ctx.Users.Find((long)_client.CurrentUser.Id);
+                    if (bot == null)
+                    {
+                        bot = new User(_client.CurrentUser);
+                        ctx.Users.Add(bot);
+                        ctx.SaveChanges();
+                    }
+                    else
+                    {
+                        ctx.Users.Attach(bot);
+                    }
+
+                    foreach (User data in ctx.Users)
+                    {
+                        data.Happiness = (sbyte)(((int)data.Happiness) - 2)
+                            .Clamp(sbyte.MinValue, sbyte.MaxValue);
+                    }
+
+                    foreach (var p in _store)
+                    {
+                        if (p.Value > 0)
+                        {
+                            var u = Client.GetUser(p.Key);
+
+                            if (u != null)
+                            {
+                                var d = ctx.Users.Find((long)p.Key);
+                                if (d == null)
+                                {
+                                    d = new User(u);
+                                    ctx.Users.Add(d);
+                                }
+                                else
+                                {
+                                    ctx.Attach(d);
+                                }
+
+                                d.Balance += p.Value;
+
+                                Transaction t = new Transaction(bot, d, p.Value, "Hourly Payment");
+                                ctx.Transactions.Add(t);
+                            } 
+                        }
+                    }
+
+                    _store.Clear();
+                    ctx.SaveChanges();
+                }
+            });
 
             await Task.Delay(-1);
+        }
+
+        private static ConcurrentDictionary<ulong, decimal> _store = new ConcurrentDictionary<ulong, decimal>();
+        private static Task WamCash_MessageRecieve(SocketMessage arg)
+        {
+            if (!arg.Author.IsCurrent() && !arg.Author.IsBot)
+            {
+                decimal add = 0.10m;
+                if (arg.Attachments.Any())
+                {
+                    add += 0.05m;
+                }
+
+                if (arg.Embeds.Any())
+                {
+                    add += 0.05m;
+                }
+
+                if (_store.ContainsKey(arg.Author.Id))
+                {
+                    _store[arg.Author.Id] += add;
+                }
+                else
+                {
+                    _store.TryAdd(arg.Author.Id, add);
+                }
+            }
+            return Task.CompletedTask;
         }
 
         private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
@@ -138,7 +229,7 @@ namespace WamBotRewrite
 
         }
 
-        private static async Task DiscordClient_MessageReceived(SocketMessage arg)
+        private static async Task ProcessComand_MessageRecieve(SocketMessage arg)
         {
             await ProcessMessage(arg, arg.Author, arg.Channel);
         }
@@ -255,18 +346,24 @@ namespace WamBotRewrite
             try
             {
                 await channel.TriggerTypingAsync();
-                //_config.Happiness.TryGetValue(author.Id, out sbyte h);
 
-                CommandContext context = new CommandContext(commandSegments.ToArray(), message, _client);
+                using (WamBotContext db = new WamBotContext())
+                {
+                    CommandContext context = new CommandContext(commandSegments.ToArray(), message, _client);
+                    User data = await db.Users.GetOrCreateAsync((long)author.Id, () => new User(author));
+                    context.UserData = data;
 
-                string[] cmdsegarr = commandSegments.ToArray();
-                await command.Run(cmdsegarr, context);
+                    string[] cmdsegarr = commandSegments.ToArray();
+                    await command.Run(cmdsegarr, context);
 
-                RequestTelemetry request = Tools.GetRequestTelemetry(author, channel, command, start, "200", true);
+                    context.UserData.Happiness += 1;
+                    context.UserData.CommandsRun += 1;
 
-                _telemetryClient?.TrackRequest(request);
+                    await db.SaveChangesAsync();
 
-                //_config.Happiness[author.Id] = (sbyte)((int)(context.Happiness).Clamp(sbyte.MinValue, sbyte.MaxValue));
+                    RequestTelemetry request = Tools.GetRequestTelemetry(author, channel, command, start, "200", true);
+                    _telemetryClient?.TrackRequest(request);
+                }
             }
             //catch (BadArgumentsException ex)
             //{

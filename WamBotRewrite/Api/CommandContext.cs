@@ -7,6 +7,8 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using WamBotRewrite.Data;
+using WamWooWam.Core;
 
 namespace WamBotRewrite.Api
 {
@@ -58,35 +60,28 @@ namespace WamBotRewrite.Api
 
         public Dictionary<string, object> AdditionalData { get; private set; } = new Dictionary<string, object>();
 
-        ///// <summary>
-        ///// The bot's current happiness, will be synched when command returns.
-        ///// </summary>
-        //public int Happiness
-        //{
-        //    get => _happiness.Clamp(sbyte.MinValue, sbyte.MaxValue);
-        //    set => _happiness = (sbyte)(value.Clamp(sbyte.MinValue, sbyte.MaxValue));
-        //}
+        /// <summary>
+        /// The bot's current happiness, will be synched when command returns.
+        /// </summary>
+        public int Happiness
+        {
+            get => UserData.Happiness.Clamp(sbyte.MinValue, sbyte.MaxValue);
+            set => UserData.Happiness = (sbyte)(value.Clamp(sbyte.MinValue, sbyte.MaxValue));
+        }
 
-        //public HappinessLevel HappinessLevel =>
-        //    Tools.GetHappinessLevel((sbyte)Happiness);
-
-        //public GuildData GuildData { get; internal set; }
-        //public ChannelData ChannelData { get; internal set; }
-        //public UserData UserData { get; internal set; }
+        public HappinessLevel HappinessLevel =>
+            Tools.GetHappinessLevel((sbyte)Happiness);
+        
+        public User UserData { get; internal set; }
 
         public EmbedBuilder GetEmbedBuilder(string title = null)
         {
             var asm = Assembly.GetExecutingAssembly().GetName();
             EmbedBuilder embedBuilder = new EmbedBuilder()
             .WithAuthor($"{(title != null ? $"{title} - " : "")}WamBot {asm.Version.ToString(3)}", Program.Application.IconUrl)
-            .WithColor(Message.Author is IGuildUser m ? GetUserColor(m) : new Color(0, 137, 255));
+            .WithColor(Message.Author is IGuildUser m ? Tools.GetUserColor(m) : new Color(0, 137, 255));
 
             return embedBuilder;
-        }
-
-        private static Color GetUserColor(IGuildUser m)
-        {
-            return m.RoleIds.Select(s => m.Guild.Roles.First(r => r.Id == s)).OrderByDescending(r => r.Position).FirstOrDefault(c => c.Color.RawValue != Color.Default.RawValue)?.Color ?? new Color(0, 137, 255);
         }
 
         public Task<IUserMessage> ReplyAsync(string content = null, bool tts = false, Embed emb = null) =>
