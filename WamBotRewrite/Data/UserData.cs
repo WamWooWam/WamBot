@@ -30,6 +30,8 @@ namespace WamBotRewrite.Data
 
         public decimal Balance { get; set; }
 
+        public bool MarkovEnabled { get; set; }
+
         [InverseProperty("From")]
         public List<Transaction> TransactionsSent { get; set; }
 

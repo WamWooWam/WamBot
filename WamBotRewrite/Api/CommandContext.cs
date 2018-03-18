@@ -33,24 +33,24 @@ namespace WamBotRewrite.Api
         /// <summary>
         /// The raw message that invoked this command
         /// </summary>
-        public IMessage Message { get; internal set; }
+        public virtual IMessage Message { get; internal set; }
 
         /// <summary>
         /// The user that invoked the command
         /// </summary>
-        public IUser Author =>
+        public virtual IUser Author =>
             Message.Author;
 
         /// <summary>
         /// The channel that this command was invoked within
         /// </summary>
-        public IMessageChannel Channel =>
+        public virtual IMessageChannel Channel =>
             Message.Channel;
 
         /// <summary>
         /// The guild (if available) this command was invoked within.
         /// </summary>
-        public IGuild Guild =>
+        public virtual IGuild Guild =>
             Message.Channel is IGuildChannel c ? c.Guild : null;
 
         public DiscordSocketClient Client
@@ -74,10 +74,10 @@ namespace WamBotRewrite.Api
 
         public HappinessLevel HappinessLevel =>
             Tools.GetHappinessLevel((sbyte)Happiness);
-        
+
         public User UserData { get; internal set; }
 
-        public EmbedBuilder GetEmbedBuilder(string title = null)
+        public virtual EmbedBuilder GetEmbedBuilder(string title = null)
         {
             var asm = Assembly.GetExecutingAssembly().GetName();
             EmbedBuilder embedBuilder = new EmbedBuilder()
@@ -87,10 +87,12 @@ namespace WamBotRewrite.Api
             return embedBuilder;
         }
 
-        public Task<IUserMessage> ReplyAsync(string content = null, bool tts = false, Embed emb = null) =>
-            Message.Channel.SendMessageAsync(content, tts, emb);
+        public virtual async Task ReplyAsync(string content = "", bool tts = false, Embed emb = null)
+        {
+            await Message.Channel.SendMessageAsync(content, tts, emb);
+        }
 
-        public async Task<IMessage> ReplyAndAwaitResponseAsync(string content, int timeout = 10_000)
+        public virtual async Task<IMessage> ReplyAndAwaitResponseAsync(string content, int timeout = 10_000)
         {
             _replyCompletionSource = new TaskCompletionSource<IMessage>();
             CancellationTokenSource source = new CancellationTokenSource();

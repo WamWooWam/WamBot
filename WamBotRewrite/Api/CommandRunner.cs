@@ -7,6 +7,15 @@ using Discord;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.IO.Pipes;
+using System.IO;
+using System.Diagnostics;
+using Newtonsoft.Json;
+using WamBotRewrite.Api.Pipes;
+using Newtonsoft.Json.Schema;
+using Newtonsoft.Json.Schema.Generation;
+using Newtonsoft.Json.Linq;
+using System.ComponentModel.DataAnnotations;
 
 namespace WamBotRewrite.Api
 {
@@ -15,8 +24,7 @@ namespace WamBotRewrite.Api
     /// </summary>
     internal class CommandRunner
     {
-        private static ConcurrentDictionary<Type, MethodInfo[]> methodCache = new ConcurrentDictionary<Type, MethodInfo[]>();
-        private static ConcurrentDictionary<MethodInfo, ParameterInfo[]> parameterCache = new ConcurrentDictionary<MethodInfo, ParameterInfo[]>();
+        private static ConcurrentDictionary<MethodInfo, ParameterInfo[]> _parameterCache = new ConcurrentDictionary<MethodInfo, ParameterInfo[]>();
         private static Dictionary<Type, string> _typeKeywords = new Dictionary<Type, string>()
         {
             { typeof(bool), "bool" },
@@ -37,21 +45,24 @@ namespace WamBotRewrite.Api
             { typeof(void), "void" }
         };
 
+        private static JSchemaGenerator _schemaGenerator = new JSchemaGenerator();
+        private static JSchema _exceptionSchema = _schemaGenerator.Generate(typeof(Exception));
 
         internal MethodInfo _method;
         private CommandAttribute _commandAttribute;
         private PermissionsAttribute _permissionsAttribute;
+        private RunOutOfProcessAttribute _outOfProcessAttribute;
         private bool _ownerOnly;
         private bool _ignoreArguments;
         private bool _requiresGuild;
 
         public CommandRunner(MethodInfo method, CommandCategory category)
         {
-            _method = method;
-            Category = category;
+            _method = method ?? throw new ArgumentNullException(nameof(method));
+            Category = category ?? throw new ArgumentNullException(nameof(category));
 
-
-            var attributes = method.GetCustomAttributes(true);
+            var attributes = method.GetCustomAttributes(true).ToList();
+            attributes.AddRange(method.DeclaringType.GetCustomAttributes(true));
 
             _commandAttribute = (CommandAttribute)attributes.FirstOrDefault(a => a is CommandAttribute);
             if (_commandAttribute == null)
@@ -60,6 +71,7 @@ namespace WamBotRewrite.Api
             }
 
             _permissionsAttribute = (PermissionsAttribute)attributes.FirstOrDefault(a => a is PermissionsAttribute);
+            _outOfProcessAttribute = (RunOutOfProcessAttribute)attributes.FirstOrDefault(a => a is RunOutOfProcessAttribute);
             _ownerOnly = attributes.Any(a => a is OwnerOnlyAttribute);
             _ignoreArguments = attributes.Any(a => a is IgnoreArgumentsAttribute);
             _requiresGuild = attributes.Any(a => a is RequiresGuildAttribute);
@@ -97,79 +109,119 @@ namespace WamBotRewrite.Api
 
         public async Task Run(string[] args, CommandContext ctx)
         {
-            MethodInfo[] methods = GetMethods();
-            List<object> parameters = new List<object> { ctx };
-            int position = 0;
-
-            if (_method.GetCustomAttribute<IgnoreArgumentsAttribute>() == null)
+            if (_outOfProcessAttribute != null && !Program.RunningOutOfProcess)
             {
-                foreach (ParameterInfo param in GetMethodParameters(_method))
+                Guid pipeGuid = Guid.NewGuid();
+                PipeContext context = new PipeContext(ctx);
+                using (NamedPipeServerStream pipeStream = new NamedPipeServerStream(pipeGuid.ToString(), PipeDirection.InOut, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous))
                 {
-                    object obj = null;
-                    if (param.IsImplicit() || position < args.Length)
+                    Process process = new Process
                     {
-                        if (param.IsParams())
+                        StartInfo = new ProcessStartInfo(Assembly.GetEntryAssembly().Location)
                         {
-                            List<object> thing = new List<object>();
-                            foreach (string s in args.Skip(position))
+                            WorkingDirectory = Directory.GetCurrentDirectory(),
+                            UseShellExecute = false,
+                            Arguments = $@"--type=command --m={_method.Name} --t={_method.DeclaringType.FullName} --p={pipeGuid} --r={_outOfProcessAttribute.RequiresDiscord}"
+                        }
+                    };
+
+                    process.Start();
+                    await pipeStream.WaitForConnectionAsync();
+
+                    using (StreamReader reader = new StreamReader(pipeStream))
+                    using (StreamWriter writer = new StreamWriter(pipeStream) { AutoFlush = true })
+                    {
+                        await writer.WriteLineAsync(JsonConvert.SerializeObject(Program.Config));
+                        await writer.WriteLineAsync(JsonConvert.SerializeObject(context));
+
+                        string str = await reader.ReadLineAsync();
+                        if (!string.IsNullOrWhiteSpace(str))
+                        {
+                            var obj = JToken.Parse(str);
+                            if (obj.IsValid(_exceptionSchema))
                             {
-                                thing.Add(await ParseParameter(s, param.ParameterType.GetElementType(), ctx));
+                                Exception ex = JsonConvert.DeserializeObject<Exception>(str);
+                                throw ex;
                             }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                List<object> parameters = new List<object> { ctx };
+                int position = 0;
 
-                            Type type = param.ParameterType.GetElementType();
-
-                            if (type == typeof(string))
+                if (_method.GetCustomAttribute<IgnoreArgumentsAttribute>() == null)
+                {
+                    foreach (ParameterInfo param in GetMethodParameters(_method))
+                    {
+                        object obj = null;
+                        if (param.IsImplicit() || position < args.Length)
+                        {
+                            if (param.IsParams())
                             {
-                                parameters.Add(thing.Cast<string>().ToArray());
+                                List<object> thing = new List<object>();
+                                foreach (string s in args.Skip(position))
+                                {
+                                    thing.Add(await ParseParameter(s, param.ParameterType.GetElementType(), param, ctx));
+                                }
+
+                                Type type = param.ParameterType.GetElementType();
+
+                                if (type == typeof(string))
+                                {
+                                    parameters.Add(thing.Cast<string>().ToArray());
+                                }
+                                else
+                                {
+                                    throw new NotSupportedException("Parameter argument type unsupported.");
+                                }
                             }
                             else
                             {
-                                throw new NotSupportedException("Parameter argument type unsupported.");
+                                obj = await ParseParameter(args.Any() ? args[position] : null, param.ParameterType, param, ctx);
+                                args = ctx.Arguments;
+                                parameters.Add(obj);
                             }
                         }
                         else
                         {
-                            obj = await ParseParameter(args.Any() ? args[position] : null, param.ParameterType, ctx);
-                            args = ctx.Arguments;
-                            parameters.Add(obj);
+                            if (!param.IsOptional)
+                            {
+                                throw new CommandException($"Hey! You'll need to specify something for \"{param.Name}\"!");
+                            }
+                            else
+                            {
+                                parameters.Add(param.DefaultValue);
+                            }
                         }
-                    }
-                    else
-                    {
-                        if (!param.IsOptional)
-                        {
-                            throw new CommandException($"Missing argument! {param.Name}");
-                        }
-                        else
-                        {
-                            parameters.Add(param.DefaultValue);
-                        }
-                    }
 
-                    if (!param.IsImplicit())
-                    {
-                        position += 1;
+                        if (!param.IsImplicit())
+                        {
+                            position += 1;
+                        }
                     }
                 }
-            }
 
-            try
-            {
-                object obj = _method.Invoke(Category, parameters.ToArray());
-                if (obj is Task t)
+                try
                 {
-                    await t;
+                    object obj = _method.Invoke(Category, parameters.ToArray());
+                    if (obj is Task t)
+                    {
+                        await t;
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                throw ex.InnerException ?? ex;
+                catch (Exception ex)
+                {
+                    throw ex.InnerException ?? ex;
+                }
             }
         }
 
         #region Tools
 
-        private async Task<object> ParseParameter(string arg, Type t, CommandContext ctx)
+        private async Task<object> ParseParameter(string arg, Type t, ParameterInfo info, CommandContext ctx)
         {
             object obj;
             try
@@ -188,7 +240,7 @@ namespace WamBotRewrite.Api
                     }
                     else
                     {
-                        throw new Exception($"Unable to parse \"{t}\"!");
+                        throw new CommandException($"Sorry! I couldn't parse what you specified for \"{info.Name}\". Expected {PrettyTypeName(t)}.");
                     }
                 }
             }
@@ -201,7 +253,17 @@ namespace WamBotRewrite.Api
                 }
                 else
                 {
-                    throw new Exception($"Unable to parse \"{t}\"!");
+                    throw new CommandException($"Sorry! I couldn't parse what you specified for \"{info.Name}\". Expected {PrettyTypeName(t)}.");
+                }
+            }
+
+            var validationAttributes = info.GetCustomAttributes<ValidationAttribute>();
+            foreach(var attribute in validationAttributes.Where(a => !a.RequiresValidationContext))
+            {
+                if (!attribute.IsValid(obj))
+                {
+                    throw new CommandException(
+                        $"That doesn't seem right! Check what you've specified for {info.Name}!{(!string.IsNullOrWhiteSpace(attribute.ErrorMessage) ? $" ({attribute.ErrorMessage})" : null)}");
                 }
             }
 
@@ -210,33 +272,14 @@ namespace WamBotRewrite.Api
 
         private static ParameterInfo[] GetMethodParameters(MethodInfo method)
         {
-            if (parameterCache.TryGetValue(method, out var m))
+            if (_parameterCache.TryGetValue(method, out var m))
             {
                 return m;
             }
             else
             {
                 var methods = method.GetParameters().Where(p => p.ParameterType != typeof(CommandContext)).ToArray();
-                parameterCache[method] = methods;
-                return methods;
-            }
-        }
-
-        private MethodInfo[] GetMethods()
-        {
-            if (methodCache.TryGetValue(GetType(), out var info))
-            {
-                return info;
-            }
-            else
-            {
-                Type t = GetType();
-                var methods = t.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                    .Where(m => m.ReturnParameter.ParameterType == typeof(Task) || m.ReturnParameter.ParameterType == typeof(void))
-                    .OrderByDescending(m => m.GetParameters().Count())
-                    .ToArray();
-
-                methodCache[t] = methods;
+                _parameterCache[method] = methods;
                 return methods;
             }
         }

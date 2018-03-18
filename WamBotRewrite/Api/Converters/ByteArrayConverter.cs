@@ -12,7 +12,7 @@ namespace WamBotRewrite.Api.Converters
 
         public Task<object> Convert(string arg, Type to, CommandContext context)
         {
-            return Task.FromResult<object>(System.Convert.FromBase64String(arg));
+            return Task.FromResult<object>(arg != null ? System.Convert.FromBase64String(arg) : null);
         }
     }
 }

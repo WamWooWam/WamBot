@@ -31,7 +31,7 @@ namespace WamBotRewrite.Commands
         public override string Name => "Music";
 
         public override string Description => "Allows me to connect to voice channels and play music!";
-
+        
         [Command("Join", "Joins me to a voice channel.", new[] { "join" })]
         public async Task Join(CommandContext ctx)
         {
@@ -274,7 +274,7 @@ namespace WamBotRewrite.Commands
 
                         if (!File.Exists(path) || !File.Exists(metaPath))
                         {
-                            var message = await ctx.ReplyAsync("Downloading...");
+                            var message = await ctx.Channel.SendMessageAsync("Downloading...");
                             DownloadAndWait(uri, name, false);
                             await message.DeleteAsync();
                         }
@@ -326,7 +326,7 @@ namespace WamBotRewrite.Commands
                             {
                                 try
                                 {
-                                    var message = await ctx.ReplyAsync("Attempting to download as direct URL...");
+                                    var message = await ctx.Channel.SendMessageAsync("Attempting to download as direct URL...");
                                     using (Stream remoteStr = await _httpClient.GetStreamAsync(uri))
                                     using (FileStream str = File.Create(path))
                                     {
@@ -346,7 +346,7 @@ namespace WamBotRewrite.Commands
                 else if (ctx.Message.Attachments.Any())
                 {
                     IAttachment attachment = ctx.Message.Attachments.First();
-                    IUserMessage message = await ctx.ReplyAsync($"Downloading \"{Path.GetFileName(attachment.Filename)}\"...");
+                    IUserMessage message = await ctx.Channel.SendMessageAsync($"Downloading \"{Path.GetFileName(attachment.Filename)}\"...");
 
                     string filePath = "";
                     using (Stream remoteStr = await _httpClient.GetStreamAsync(attachment.Url))
@@ -496,7 +496,7 @@ namespace WamBotRewrite.Commands
             {
                 if (connection.Recording)
                 {
-                    var message = await ctx.ReplyAsync("Processing your ~~clusterfuck~~ recording...");
+                    var message = await ctx.Channel.SendMessageAsync("Processing your ~~clusterfuck~~ recording...");
                     connection.Recording = false;
                 }
                 else

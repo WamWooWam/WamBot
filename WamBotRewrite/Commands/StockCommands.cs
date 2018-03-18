@@ -23,7 +23,7 @@ namespace WamBotRewrite.Commands
         static HttpClient _client = new HttpClient();
         private static DateTime? _startupTime = null;
 
-        internal StockCommands()
+        public StockCommands()
         {
             if (_startupTime == null)
             {
@@ -34,7 +34,7 @@ namespace WamBotRewrite.Commands
         public override string Name => "Stock";
 
         public override string Description => "The usual stuff most bots seem to have, including me.";
-
+        
         [Command("Echo", "Echos the text you give it.", new[] { "echo", "say" })]
         public async Task Echo(CommandContext ctx, params string[] args)
         {
@@ -414,7 +414,7 @@ namespace WamBotRewrite.Commands
                 foreach (var cat in Program.CommandCategories)
                 {
                     str.Clear();
-                    str.AppendLine(cat.Key.Description);
+                    str.AppendLine(cat.Key.Description.Substring(0, cat.Key.Description.IndexOf("\n") != -1 ? cat.Key.Description.IndexOf("\n") : cat.Key.Description.Length));
                     str.Append("`");
 
                     bool first = true;

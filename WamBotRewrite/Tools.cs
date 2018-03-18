@@ -81,7 +81,7 @@ namespace WamBotRewrite
 
             return value;
         }
-        
+
         public static Timer CreateTimer(TimeSpan interval, ElapsedEventHandler action)
         {
             Timer timer = new Timer { Interval = interval.TotalMilliseconds };

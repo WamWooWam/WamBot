@@ -9,12 +9,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WamWooWam.Core", "..\..\..\
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{F586A778-4D5E-418F-A589-F61AEF36A48D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Discord.Net.WebSocket", "..\Discord.Net\src\Discord.Net.WebSocket\Discord.Net.WebSocket.csproj", "{289DA0BF-2140-4A16-8986-3291F9DACE0D}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Discord.Net.Core", "..\Discord.Net\src\Discord.Net.Core\Discord.Net.Core.csproj", "{DC8A7561-C7FD-42FE-8C58-F1B6B9DC6349}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Discord.Net.Rest", "..\Discord.Net\src\Discord.Net.Rest\Discord.Net.Rest.csproj", "{80FAEEE1-DCD4-400D-A075-879BD18A90EE}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,27 +23,12 @@ Global
 		{992D030C-1A11-4DAD-85A4-F622F4ADF118}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{992D030C-1A11-4DAD-85A4-F622F4ADF118}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{992D030C-1A11-4DAD-85A4-F622F4ADF118}.Release|Any CPU.Build.0 = Release|Any CPU
-		{289DA0BF-2140-4A16-8986-3291F9DACE0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{289DA0BF-2140-4A16-8986-3291F9DACE0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{289DA0BF-2140-4A16-8986-3291F9DACE0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{289DA0BF-2140-4A16-8986-3291F9DACE0D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DC8A7561-C7FD-42FE-8C58-F1B6B9DC6349}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DC8A7561-C7FD-42FE-8C58-F1B6B9DC6349}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DC8A7561-C7FD-42FE-8C58-F1B6B9DC6349}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DC8A7561-C7FD-42FE-8C58-F1B6B9DC6349}.Release|Any CPU.Build.0 = Release|Any CPU
-		{80FAEEE1-DCD4-400D-A075-879BD18A90EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{80FAEEE1-DCD4-400D-A075-879BD18A90EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{80FAEEE1-DCD4-400D-A075-879BD18A90EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{80FAEEE1-DCD4-400D-A075-879BD18A90EE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{992D030C-1A11-4DAD-85A4-F622F4ADF118} = {F586A778-4D5E-418F-A589-F61AEF36A48D}
-		{289DA0BF-2140-4A16-8986-3291F9DACE0D} = {F586A778-4D5E-418F-A589-F61AEF36A48D}
-		{DC8A7561-C7FD-42FE-8C58-F1B6B9DC6349} = {F586A778-4D5E-418F-A589-F61AEF36A48D}
-		{80FAEEE1-DCD4-400D-A075-879BD18A90EE} = {F586A778-4D5E-418F-A589-F61AEF36A48D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6259A250-6133-4DC0-8996-0A77EE23273A}

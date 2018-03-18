@@ -1,18 +1,23 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Rest;
 using Discord.WebSocket;
+using MarkovChains;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
 using Newtonsoft.Json;
 using WamBotRewrite.Api;
 using WamBotRewrite.Api.Converters;
+using WamBotRewrite.Api.Pipes;
 using WamBotRewrite.Commands;
 using WamBotRewrite.Data;
 using WamWooWam.Core;
@@ -21,22 +26,131 @@ namespace WamBotRewrite
 {
     class Program
     {
+        internal static RestApplication Application { get; private set; }
         internal static List<CommandRunner> Commands { get; private set; } = new List<CommandRunner>();
         internal static IEnumerable<IGrouping<CommandCategory, CommandRunner>> CommandCategories => Commands.GroupBy(c => c.Category);
         internal static List<IParamConverter> ParamConverters { get; private set; } = new List<IParamConverter>();
+        internal static Dictionary<ulong, Markov<string>> Markovs { get; private set; } = new Dictionary<ulong, Markov<string>>();
+        internal static Dictionary<ulong, List<string>> MarkovList { get; private set; } = new Dictionary<ulong, List<string>>();
+        internal static List<KeyValuePair<ActivityType, string>> Statuses { get; private set; } = new List<KeyValuePair<ActivityType, string>>();
+        internal static bool RunningOutOfProcess { get; private set; } = false;
+
         internal static DiscordSocketClient Client => _client;
         internal static DiscordRestClient RestClient => _restClient;
-        internal static RestApplication Application { get; private set; }
         internal static Config Config => _config;
 
-
+        static ConcurrentDictionary<ulong, decimal> _store = new ConcurrentDictionary<ulong, decimal>();
         static List<ulong> _processedMessageIds = new List<ulong>();
         static DiscordSocketClient _client;
         static DiscordRestClient _restClient;
         static TelemetryClient _telemetryClient;
         static Config _config;
+        static Random _random = new Random();
 
-        static async Task Main(string[] args)
+#pragma warning disable CS4014 // Sometimes this is intended behaviour
+
+        static async Task Main(string[] rawArgs)
+        {
+            if (rawArgs.Any())
+            {
+                Dictionary<string, string> args = new Dictionary<string, string>();
+                foreach (string str in rawArgs)
+                {
+                    string arg = str.TrimStart('-');
+                    args.Add(arg.Substring(0, arg.IndexOf('=')), arg.Substring(arg.IndexOf('=') + 1));
+                }
+                Console.WriteLine(JsonConvert.SerializeObject(args));
+
+                if (args.TryGetValue("type", out string processType))
+                {
+                    if (processType == "bot")
+                    {
+                        await NormalMain();
+                    }
+                    else if (processType == "command")
+                    {
+                        RunningOutOfProcess = true;
+                        string type = args["t"];
+                        string method = args["m"];
+                        string pipeId = args["p"];
+                        bool requiresDiscord = bool.Parse(args["r"]);
+
+                        Type t = Type.GetType(type);
+                        MethodInfo info = t.GetMethod(method, BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public);
+
+                        using (var pipe = new NamedPipeClientStream(".", pipeId, PipeDirection.InOut, PipeOptions.Asynchronous))
+                        {
+                            await pipe.ConnectAsync();
+
+                            using (var _pipeReader = new StreamReader(pipe))
+                            using (var _pipeWriter = new StreamWriter(pipe) { AutoFlush = true })
+                            {
+                                string configString = await _pipeReader.ReadLineAsync();
+                                _config = JsonConvert.DeserializeObject<Config>(configString);
+
+                                string contextString = await _pipeReader.ReadLineAsync();
+                                var pipeContext = JsonConvert.DeserializeObject<PipeContext>(contextString);
+                                var pipeCommandContext = new PipeCommandContext(pipeContext);
+
+                                _restClient = new DiscordRestClient(new DiscordRestConfig()
+                                {
+                                    LogLevel = LogSeverity.Debug
+                                });
+                                _restClient.Log += DiscordClient_Log;
+
+                                _restClient.LoginAsync(TokenType.Bot, _config.Token);
+
+                                if (requiresDiscord)
+                                {
+                                    await InitialiseDiscordClients();
+                                }
+
+                                ParamConverters.AddRange(new IParamConverter[] { new DiscordChannelParse(), new DiscordUserParse(), new DiscordRoleParse(), new DiscordGuildParse(), new ByteArrayConverter() });
+
+                                try
+                                {
+                                    CommandRunner runner = new CommandRunner(info, (CommandCategory)Activator.CreateInstance(t));
+                                    await runner.Run(pipeContext.Arguments, pipeCommandContext);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine(ex);
+                                    await _pipeWriter.WriteLineAsync(JsonConvert.SerializeObject(ex));
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    return;
+                }
+            }
+            else
+            {
+                RunDefaultBotProcess();
+            }
+        }
+
+#pragma warning restore CS4014
+
+        private static void RunDefaultBotProcess()
+        {
+            Process process = new Process
+            {
+                StartInfo = new ProcessStartInfo(Assembly.GetEntryAssembly().Location)
+                {
+                    WorkingDirectory = Directory.GetCurrentDirectory(),
+                    UseShellExecute = false,
+                    Arguments = $@"--type=bot"
+                }
+            };
+
+            process.Start();
+            process.WaitForExit();
+        }
+
+        private static async Task NormalMain()
         {
             if (File.Exists("config.json"))
             {
@@ -84,24 +198,60 @@ namespace WamBotRewrite
                 File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
             }
 
-            _client = new DiscordSocketClient(new DiscordSocketConfig()
+            foreach (string statusString in Config.StatusMessages)
             {
-                AlwaysDownloadUsers = true,
-                DefaultRetryMode = RetryMode.AlwaysRetry,
-                LogLevel = LogSeverity.Debug,
-                MessageCacheSize = 200
-            });
+                if (Enum.TryParse<ActivityType>(statusString.First().ToString(), out var s))
+                {
+                    string t = statusString.Remove(0, 1);
+                    Statuses.Add(new KeyValuePair<ActivityType, string>(s, t));
+                }
+                else
+                {
+                    Statuses.Add(new KeyValuePair<ActivityType, string>(ActivityType.Playing, statusString));
+                }
+            }
 
-            _client.Log += DiscordClient_Log;
-            await _client.LoginAsync(TokenType.Bot, _config.Token);
-
-            _restClient = new DiscordRestClient(new DiscordRestConfig()
+            if (File.Exists("markov.json"))
             {
-                LogLevel = LogSeverity.Debug
-            });
-            _restClient.Log += DiscordClient_Log;
+                MarkovList = JsonConvert.DeserializeObject<Dictionary<ulong, List<string>>>(File.ReadAllText("markov.json"));
+                //File.Delete("markov.json");
 
-            await _restClient.LoginAsync(TokenType.Bot, _config.Token);
+                foreach (var pair in MarkovList)
+                {
+                    Markov<string> markov = new Markov<string>(".");
+                    markov.Train(pair.Value, 2);
+                    Markovs[pair.Key] = markov;
+                }
+            }
+
+            bool connected = false;
+            int failures = 0;
+            while (!connected)
+            {
+                failures += 1;
+
+                try
+                {
+                    await InitialiseDiscordClients();
+
+                    _restClient = new DiscordRestClient(new DiscordRestConfig()
+                    {
+                        LogLevel = LogSeverity.Debug
+                    });
+                    _restClient.Log += DiscordClient_Log;
+
+                    await _restClient.LoginAsync(TokenType.Bot, _config.Token);
+                    await _client.StartAsync();
+
+                    connected = true;
+                    break;
+                }
+                catch
+                {
+                    Console.WriteLine($"Failed to connect to Discord. Retrying in {5 * failures} seconds");
+                    await Task.Delay(5000 * failures);
+                }
+            }
 
             _telemetryClient?.Flush();
             if (_config.ApplicationInsightsKey != Guid.Empty)
@@ -120,7 +270,6 @@ namespace WamBotRewrite
                 TelemetryConfiguration.Active.DisableTelemetry = true;
             }
 
-            await _client.StartAsync();
             Application = await _client.GetApplicationInfoAsync();
 
             Commands.AddRange(new StockCommands().GetCommands());
@@ -128,16 +277,36 @@ namespace WamBotRewrite
             Commands.AddRange(new MusicCommands().GetCommands());
             Commands.AddRange(new WamCashCommands().GetCommands());
             Commands.AddRange(new CryptoCommands().GetCommands());
-            ParamConverters.AddRange(new IParamConverter[] { new DiscordChannelParse(), new DiscordUserParse(), new DiscordRoleParse(), new DiscordGuildParse(), new ByteArrayConverter() });
+            Commands.AddRange(new MarkovCommands().GetCommands());
+            Commands.AddRange(new ImageCommands().GetCommands());
+            ParamConverters.AddRange(
+                new IParamConverter[] {
+                    new DiscordChannelParse(),
+                    new DiscordUserParse(),
+                    new DiscordRoleParse(),
+                    new DiscordGuildParse(),
+                    new ByteArrayConverter(),
+                    new ImageConverter(),
+                    new ColourConverter(),
+                    new FontConverter()
+                });
 
             Console.WriteLine($"{Commands.Count} commands and {ParamConverters.Count} converters ready and waiting!");
 
             _client.MessageReceived += WamCash_MessageRecieve;
             _client.MessageReceived += ProcessComand_MessageRecieve;
 
+            await SetStatusAsync();
+
             var saveTimer = Tools.CreateTimer(TimeSpan.FromMinutes(5), (s, e) =>
             {
                 File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
+                File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovList));
+            });
+
+            var statusUpdateTimer = Tools.CreateTimer(TimeSpan.FromMinutes(15), async (s, e) =>
+            {
+                await SetStatusAsync();
             });
 
             var happinessTickdown = Tools.CreateTimer(TimeSpan.FromMinutes(60), (s, e) =>
@@ -163,7 +332,7 @@ namespace WamBotRewrite
                         }
                         else
                         {
-                            data.Happiness = (sbyte)(((int)data.Happiness) - 2)
+                            data.Happiness = (sbyte)(((int)data.Happiness) - 1)
                                 .Clamp(sbyte.MinValue, sbyte.MaxValue);
                         }
                     }
@@ -203,8 +372,36 @@ namespace WamBotRewrite
             await Task.Delay(-1);
         }
 
-        private static ConcurrentDictionary<ulong, decimal> _store = new ConcurrentDictionary<ulong, decimal>();
-        private static Task WamCash_MessageRecieve(SocketMessage arg)
+        private static async Task SetStatusAsync()
+        {
+            var st = Statuses.ElementAt(_random.Next(Statuses.Count));
+            if (st.Key == ActivityType.Streaming)
+            {
+                string str = st.Value.Substring(0, st.Value.IndexOf("|"));
+                string link = st.Value.Substring(st.Value.IndexOf("|") + 1);
+                await _client.SetGameAsync(str, link, st.Key);
+            }
+            else
+            {
+                await _client.SetGameAsync(st.Value, type: st.Key);
+            }
+        }
+
+        private static async Task InitialiseDiscordClients()
+        {
+            _client = new DiscordSocketClient(new DiscordSocketConfig()
+            {
+                AlwaysDownloadUsers = true,
+                DefaultRetryMode = RetryMode.AlwaysRetry,
+                LogLevel = LogSeverity.Debug,
+                MessageCacheSize = 200
+            });
+
+            _client.Log += DiscordClient_Log;
+            await _client.LoginAsync(TokenType.Bot, _config.Token);
+        }
+
+        private static async Task WamCash_MessageRecieve(SocketMessage arg)
         {
             if (!arg.Author.IsCurrent() && !arg.Author.IsBot)
             {
@@ -228,12 +425,48 @@ namespace WamBotRewrite
                     _store.TryAdd(arg.Author.Id, add);
                 }
             }
-            return Task.CompletedTask;
+
+            if (!string.IsNullOrWhiteSpace(arg.Content) && !arg.Author.IsCurrent())
+            {
+                var strings = arg.Content
+                    .Split(c => char.IsSeparator(c) || char.IsWhiteSpace(c))
+                    .Where(s => !s.StartsWith(Config.Prefix) && !char.IsSymbol(s.First()) && s.All(c => char.IsLetterOrDigit(c) || char.IsPunctuation(c)));
+                using (WamBotContext ctx = new WamBotContext())
+                {
+                    User data = await ctx.Users.GetOrCreateAsync(ctx, (long)arg.Author.Id, () => new User(arg.Author));
+
+                    if (strings.Count() > 2 && data.MarkovEnabled)
+                    {
+                        Console.WriteLine($"Adding {JsonConvert.SerializeObject(strings)} to Markov for {arg.Author.Username}#{arg.Author.Discriminator}");
+
+                        if (Markovs.TryGetValue(arg.Author.Id, out Markov<string> m))
+                        {
+                            m.Train(strings.ToList(), 2);
+                            MarkovList[arg.Author.Id].AddRange(strings);
+                        }
+                        else
+                        {
+                            Markov<string> markov = new Markov<string>(".");
+                            markov.Train(strings.ToList(), 2);
+
+                            var markovList = new List<string>();
+                            markovList.AddRange(strings);
+
+                            MarkovList[arg.Author.Id] = markovList;
+                            Markovs[arg.Author.Id] = markov;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"User {arg.Author.Username}#{arg.Author.Discriminator} has automatic markov training disabled.");
+                    }
+                }
+            }
         }
 
         private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
         {
-
+            File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovList));
         }
 
         private static async Task ProcessComand_MessageRecieve(SocketMessage arg)
@@ -372,11 +605,6 @@ namespace WamBotRewrite
                     _telemetryClient?.TrackRequest(request);
                 }
             }
-            //catch (BadArgumentsException ex)
-            //{
-            //    Console.WriteLine(ex);
-            //    await HandleBadRequest(message, author, channel, commandSegments, commandAlias, command, start);
-            //}
             catch (CommandException ex)
             {
                 Console.WriteLine(ex);
@@ -392,12 +620,7 @@ namespace WamBotRewrite
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                //success = false;
                 ManageException(message, channel, ex, command);
-
-                //sbyte h = 0;
-                //_config.Happiness?.TryGetValue(author.Id, out h);
-                //_config.Happiness[author.Id] = (sbyte)((int)h - 1).Clamp(sbyte.MinValue, sbyte.MaxValue);
             }
             finally
             {
@@ -421,20 +644,27 @@ namespace WamBotRewrite
 
         private static void ManageException(SocketMessage message, ISocketMessageChannel channel, Exception ex, CommandRunner command)
         {
-            Console.WriteLine($"\n --- Something's fucked up! --- \n{ex.ToString()}\n");
-            _telemetryClient?.TrackException(ex, new Dictionary<string, string> { { "command", command.GetType().Name } });
-
             if (!(ex is TaskCanceledException) && !(ex is OperationCanceledException))
             {
+                Console.WriteLine($"\n --- Something's fucked up! --- \n{ex.ToString()}\n");
+                _telemetryClient?.TrackException(ex, new Dictionary<string, string> { { "command", command.GetType().Name } });
 
                 new Task(async () =>
                 {
                     try
                     {
-                        IUserMessage msg = await channel.SendMessageAsync(
-                            $"Something's gone very wrong executing that command, and an {ex.GetType().Name} occured." +
-                            "\r\nThis error has been reported, and should be fixed soon:tm:!" +
-                            $"\r\nThis message will be deleted in 10 seconds.");
+                        EmbedBuilder builder = new EmbedBuilder()
+                            .WithAuthor($"Error - WamBot {Assembly.GetEntryAssembly().GetName().Version.ToString(3)}", Application?.IconUrl)
+                            .WithDescription($"Something's gone very wrong executing that command, and an {ex.GetType().Name} occured.")
+                            .WithFooter("This message will be deleted in 10 seconds")
+                            .WithTimestamp(DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10))
+                            .WithColor(255, 0, 0);
+                        builder.AddField("Message", $"```{ex.Message.Truncate(1016)}```");
+#if DEBUG
+                        builder.AddField("Stack Trace", $"```{ex.StackTrace.Truncate(1016)}```");
+#endif
+
+                        IUserMessage msg = await channel.SendMessageAsync("", embed: builder.Build());
 
                         await Task.Delay(10_000);
                         await msg.DeleteAsync();
