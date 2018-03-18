@@ -13,6 +13,12 @@ using SixLabors.Primitives;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp.Drawing;
 using Discord;
+using System.Reflection;
+
+using Path = System.IO.Path;
+using File = System.IO.File;
+using Image = SixLabors.ImageSharp.Image;
+using System.IO;
 
 namespace WamBotRewrite.Commands
 {
@@ -20,6 +26,27 @@ namespace WamBotRewrite.Commands
     class ImageCommands : CommandCategory
     {
         internal static Dictionary<ulong, Image<Rgba32>> ImageCache { get; private set; } = new Dictionary<ulong, Image<Rgba32>>();
+
+        static Rgba32 colour = new Rgba32(255, 255, 204); // clippy background colour
+        static Image<Rgba32> clippyTop;
+        static Image<Rgba32> clippyBottom;
+        static Font font;
+        static string[] characters = new[] { "dot", "hoverbot", "nature", "office", "powerpup", "scribble", "wizard" };
+        static bool clippyEnabled = true;
+
+        public ImageCommands()
+        {
+            try
+            {
+                clippyTop = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", "clippytop.png"));
+                clippyBottom = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", "clippybottom.png"));
+                font = SystemFonts.Find("Comic Sans MS").CreateFont(14);
+            }
+            catch
+            {
+                clippyEnabled = false;
+            }
+        }
 
         public override string Name => "Image";
 
@@ -241,6 +268,54 @@ namespace WamBotRewrite.Commands
             }
 
             await ctx.ReplyAsync(image, b);
+        }
+
+        [Command("Clippy", "Generates an image of clippy asking a question.", new[] { "clippy", "clip" })]
+        public async Task Clippy(CommandContext ctx, params string[] args)
+        {
+            Image<Rgba32> baseImage = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", $"clippy.png"));
+            try
+            {
+                IEnumerable<string> txtBase = args;
+                if (characters.Contains(args[0].ToLowerInvariant()))
+                {
+                    baseImage = ChangeImage(ref txtBase);
+                }
+
+                string txt = string.Join("\r\n\r\n", txtBase);
+
+                RectangleF size = TextMeasurer.MeasureBounds(txt, new RendererOptions(font) { WrappingWidth = clippyTop.Width - 20 });
+                using (Image<Rgba32> textImage = new Image<Rgba32>(clippyTop.Width, (int)Math.Ceiling(size.Height + 5)))
+                {
+                    textImage.Mutate(m => m
+                        .Fill(colour)
+                        .DrawLines(Rgba32.Black, 2, new PointF[] { new PointF(0, 0), new PointF(0, textImage.Height) })
+                        .DrawLines(Rgba32.Black, 2, new PointF[] { new PointF(textImage.Width, 0), new PointF(textImage.Width, textImage.Height) })
+                        .DrawText(txt, font, Rgba32.Black, new PointF(10, 0), new TextGraphicsOptions() { WrapTextWidth = clippyTop.Width - 20 }));
+
+                    Image<Rgba32> returnImage = new Image<Rgba32>(clippyTop.Width, clippyTop.Height + textImage.Height + clippyBottom.Height + baseImage.Height);
+
+                    returnImage.Mutate(m => m
+                        .Fill(Rgba32.Transparent)
+                        .DrawImage(clippyTop, 1, new Size(clippyTop.Width, clippyTop.Height), new Point(0, 0))
+                        .DrawImage(textImage, 1, new Size(textImage.Width, textImage.Height), new Point(0, clippyTop.Height))
+                        .DrawImage(clippyBottom, 1, new Size(clippyBottom.Width, clippyBottom.Height), new Point(0, clippyTop.Height + textImage.Height))
+                        .DrawImage(baseImage, 1, new Size(baseImage.Width, baseImage.Height), new Point((clippyTop.Width - baseImage.Width) / 2, clippyTop.Height + textImage.Height + clippyBottom.Height)));
+
+                    await ctx.ReplyAsync(returnImage);
+                }
+            }
+            finally
+            {
+                baseImage?.Dispose();
+            }
+        }
+
+        private static Image<Rgba32> ChangeImage(ref IEnumerable<string> txtBase)
+        {
+            Image<Rgba32> baseImage = Image.Load(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Assets", $"{txtBase.ElementAt(0)}.png"));
+            txtBase = txtBase.Skip(1);
+            return baseImage;
         }
     }
 }
