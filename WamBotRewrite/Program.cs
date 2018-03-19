@@ -30,8 +30,6 @@ namespace WamBotRewrite
         internal static List<CommandRunner> Commands { get; private set; } = new List<CommandRunner>();
         internal static IEnumerable<IGrouping<CommandCategory, CommandRunner>> CommandCategories => Commands.GroupBy(c => c.Category);
         internal static List<IParamConverter> ParamConverters { get; private set; } = new List<IParamConverter>();
-        internal static Dictionary<ulong, Markov<string>> Markovs { get; private set; } = new Dictionary<ulong, Markov<string>>();
-        internal static Dictionary<ulong, List<string>> MarkovList { get; private set; } = new Dictionary<ulong, List<string>>();
         internal static List<KeyValuePair<ActivityType, string>> Statuses { get; private set; } = new List<KeyValuePair<ActivityType, string>>();
         internal static bool RunningOutOfProcess { get; private set; } = false;
 
@@ -209,20 +207,7 @@ namespace WamBotRewrite
                 {
                     Statuses.Add(new KeyValuePair<ActivityType, string>(ActivityType.Playing, statusString));
                 }
-            }
-
-            if (File.Exists("markov.json"))
-            {
-                MarkovList = JsonConvert.DeserializeObject<Dictionary<ulong, List<string>>>(File.ReadAllText("markov.json"));
-                //File.Delete("markov.json");
-
-                foreach (var pair in MarkovList)
-                {
-                    Markov<string> markov = new Markov<string>(".");
-                    markov.Train(pair.Value, 2);
-                    Markovs[pair.Key] = markov;
-                }
-            }
+            }           
 
             bool connected = false;
             int failures = 0;
@@ -260,8 +245,6 @@ namespace WamBotRewrite
                 _telemetryClient = new TelemetryClient();
                 _telemetryClient.TrackEvent(new EventTelemetry("Startup"));
 
-                AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
-
                 Console.WriteLine($"Application Insights telemetry configured! {_telemetryClient.IsEnabled()}");
             }
             else
@@ -279,6 +262,7 @@ namespace WamBotRewrite
             Commands.AddRange(new CryptoCommands().GetCommands());
             Commands.AddRange(new MarkovCommands().GetCommands());
             Commands.AddRange(new ImageCommands().GetCommands());
+            Commands.AddRange(new ModerationCommands().GetCommands());
             ParamConverters.AddRange(
                 new IParamConverter[] {
                     new DiscordChannelParse(),
@@ -301,7 +285,7 @@ namespace WamBotRewrite
             var saveTimer = Tools.CreateTimer(TimeSpan.FromMinutes(5), (s, e) =>
             {
                 File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
-                File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovList));
+                File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovCommands.MarkovList));
             });
 
             var statusUpdateTimer = Tools.CreateTimer(TimeSpan.FromMinutes(15), async (s, e) =>
@@ -375,6 +359,7 @@ namespace WamBotRewrite
         private static async Task SetStatusAsync()
         {
             var st = Statuses.ElementAt(_random.Next(Statuses.Count));
+            Console.WriteLine($"Setting status to: {st.Key} {st.Value}");
             if (st.Key == ActivityType.Streaming)
             {
                 string str = st.Value.Substring(0, st.Value.IndexOf("|"));
@@ -425,48 +410,6 @@ namespace WamBotRewrite
                     _store.TryAdd(arg.Author.Id, add);
                 }
             }
-
-            if (!string.IsNullOrWhiteSpace(arg.Content) && !arg.Author.IsCurrent())
-            {
-                var strings = arg.Content
-                    .Split(c => char.IsSeparator(c) || char.IsWhiteSpace(c))
-                    .Where(s => !s.StartsWith(Config.Prefix) && !char.IsSymbol(s.First()) && s.All(c => char.IsLetterOrDigit(c) || char.IsPunctuation(c)));
-                using (WamBotContext ctx = new WamBotContext())
-                {
-                    User data = await ctx.Users.GetOrCreateAsync(ctx, (long)arg.Author.Id, () => new User(arg.Author));
-
-                    if (strings.Count() > 2 && data.MarkovEnabled)
-                    {
-                        Console.WriteLine($"Adding {JsonConvert.SerializeObject(strings)} to Markov for {arg.Author.Username}#{arg.Author.Discriminator}");
-
-                        if (Markovs.TryGetValue(arg.Author.Id, out Markov<string> m))
-                        {
-                            m.Train(strings.ToList(), 2);
-                            MarkovList[arg.Author.Id].AddRange(strings);
-                        }
-                        else
-                        {
-                            Markov<string> markov = new Markov<string>(".");
-                            markov.Train(strings.ToList(), 2);
-
-                            var markovList = new List<string>();
-                            markovList.AddRange(strings);
-
-                            MarkovList[arg.Author.Id] = markovList;
-                            Markovs[arg.Author.Id] = markov;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"User {arg.Author.Username}#{arg.Author.Discriminator} has automatic markov training disabled.");
-                    }
-                }
-            }
-        }
-
-        private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
-        {
-            File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovList));
         }
 
         private static async Task ProcessComand_MessageRecieve(SocketMessage arg)
