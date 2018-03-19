@@ -76,6 +76,8 @@ namespace WamBotRewrite.Api
             Tools.GetHappinessLevel((sbyte)Happiness);
 
         public User UserData { get; internal set; }
+        public Channel ChannelData { get; internal set; }
+        public Guild GuildData { get; internal set; }
 
         public virtual EmbedBuilder GetEmbedBuilder(string title = null)
         {

@@ -32,7 +32,6 @@ namespace WamBotRewrite.Commands
         static Image<Rgba32> clippyBottom;
         static Font font;
         static string[] characters = new[] { "dot", "hoverbot", "nature", "office", "powerpup", "scribble", "wizard" };
-        static bool clippyEnabled = true;
 
         public ImageCommands()
         {
@@ -44,7 +43,6 @@ namespace WamBotRewrite.Commands
             }
             catch
             {
-                clippyEnabled = false;
             }
         }
 

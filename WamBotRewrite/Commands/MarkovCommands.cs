@@ -13,6 +13,7 @@ using WamWooWam.Core;
 
 namespace WamBotRewrite.Commands
 {
+    [RequiresGuild]
     class MarkovCommands : CommandCategory
     {
         internal static Dictionary<ulong, Markov<string>> Markovs { get; private set; } = new Dictionary<ulong, Markov<string>>();
@@ -44,8 +45,8 @@ namespace WamBotRewrite.Commands
 
         [Command("Markov Opt-in",
             "This command allows you to opt in/out of automatic markov training.",
-            new[] { "markovin", "markovout" },
-            ExtendedDescription = "You can train your markov chain regardless by using the Markov Train command.")]
+            new[] { "markov-in", "markov-out" },
+            ExtendedDescription = "You can train your markov chain regardless by using the Markov Train command!")]
         public async Task MarkovOptIn(CommandContext ctx)
         {
             if (ctx.UserData.MarkovEnabled)
@@ -70,7 +71,23 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        [Command("Markov Train", "Train your markov chain with a given string", new[] { "train" })]
+        [Permissions(UserPermissions = GuildPermission.ManageMessages)]
+        [Command("Markov Channel Opt-out", "Allows you to disable/enable automatic markov training for the current channel.", new[] { "markov-disable", "markov-enable" })]
+        public async Task MarkovChannelOut(CommandContext ctx)
+        {
+            if (ctx.ChannelData.MarkovEnabled)
+            {
+                ctx.ChannelData.MarkovEnabled = false;
+                await ctx.ReplyAsync("Automatic markov training has been disabled for this channel.");
+            }
+            else
+            {
+                ctx.ChannelData.MarkovEnabled = true;
+                await ctx.ReplyAsync("Automatic markov training has been enabled for this channel!");
+            }
+        }
+
+        [Command("Markov Train", "Train your markov chain with a given string", new[] { "markov-train", "train" })]
         public async Task MarkovTrain(CommandContext ctx, params string[] strings)
         {
             if (Markovs.TryGetValue(ctx.Author.Id, out var m))
@@ -93,7 +110,7 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        [Command("Markov Clear", "Clears and resets your markov chain.", new[] { "clear", "mreset" })]
+        [Command("Markov Clear", "Clears and resets your markov chain.", new[] { "markov-reset" })]
         public async Task MarkovClear(CommandContext ctx)
         {
             if (Markovs.TryGetValue(ctx.Author.Id, out var m))
@@ -126,7 +143,7 @@ namespace WamBotRewrite.Commands
 
         private void CurrentDomain_ProcessExit(object sender, EventArgs e)
         {
-            File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovCommands.MarkovList));
+            File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovList));
         }
 
         private async Task Markov_MessageRecieved(Discord.WebSocket.SocketMessage arg)
@@ -139,32 +156,49 @@ namespace WamBotRewrite.Commands
                 using (WamBotContext ctx = new WamBotContext())
                 {
                     User data = await ctx.Users.GetOrCreateAsync(ctx, (long)arg.Author.Id, () => new User(arg.Author));
+                    Channel channel = null;
 
-                    if (strings.Count() > 2 && data.MarkovEnabled)
+                    if(arg.Channel is IGuildChannel gc)
                     {
-                        Console.WriteLine($"Adding {JsonConvert.SerializeObject(strings)} to Markov for {arg.Author.Username}#{arg.Author.Discriminator}");
+                        await ctx.Guilds.GetOrCreateAsync(ctx, (long)gc.GuildId, () => new Guild(gc.Guild));
+                        channel = await ctx.Channels.GetOrCreateAsync(ctx, (long)gc.Id, () => new Channel(gc));
+                    }
 
-                        if (Markovs.TryGetValue(arg.Author.Id, out Markov<string> m))
+                    if (strings.Count() > 2)
+                    {
+                        if (data.MarkovEnabled)
                         {
-                            m.Train(strings.ToList(), 2);
-                            MarkovList[arg.Author.Id].AddRange(strings);
+                            if (channel?.MarkovEnabled != false)
+                            {
+                                Console.WriteLine($"Adding {JsonConvert.SerializeObject(strings)} to Markov for {arg.Author.Username}#{arg.Author.Discriminator}");
+
+                                if (Markovs.TryGetValue(arg.Author.Id, out Markov<string> m))
+                                {
+                                    m.Train(strings.ToList(), 2);
+                                    MarkovList[arg.Author.Id].AddRange(strings);
+                                }
+                                else
+                                {
+                                    Markov<string> markov = new Markov<string>(".");
+                                    markov.Train(strings.ToList(), 2);
+
+                                    var markovList = new List<string>();
+                                    markovList.AddRange(strings);
+
+                                    MarkovList[arg.Author.Id] = markovList;
+                                    Markovs[arg.Author.Id] = markov;
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Channel #{arg.Channel.Name} has automatic markov training disabled.");
+                            }
                         }
                         else
                         {
-                            Markov<string> markov = new Markov<string>(".");
-                            markov.Train(strings.ToList(), 2);
-
-                            var markovList = new List<string>();
-                            markovList.AddRange(strings);
-
-                            MarkovList[arg.Author.Id] = markovList;
-                            Markovs[arg.Author.Id] = markov;
+                            Console.WriteLine($"User {arg.Author.Username}#{arg.Author.Discriminator} has automatic markov training disabled.");
                         }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"User {arg.Author.Username}#{arg.Author.Discriminator} has automatic markov training disabled.");
-                    }
+                    }                    
                 }
             }
         }

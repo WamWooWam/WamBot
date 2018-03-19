@@ -7,6 +7,7 @@ using System.IO.Pipes;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Timers;
 using Discord;
 using Discord.Rest;
 using Discord.WebSocket;
@@ -37,7 +38,6 @@ namespace WamBotRewrite
         internal static DiscordRestClient RestClient => _restClient;
         internal static Config Config => _config;
 
-        static ConcurrentDictionary<ulong, decimal> _store = new ConcurrentDictionary<ulong, decimal>();
         static List<ulong> _processedMessageIds = new List<ulong>();
         static DiscordSocketClient _client;
         static DiscordRestClient _restClient;
@@ -207,7 +207,7 @@ namespace WamBotRewrite
                 {
                     Statuses.Add(new KeyValuePair<ActivityType, string>(ActivityType.Playing, statusString));
                 }
-            }           
+            }
 
             bool connected = false;
             int failures = 0;
@@ -277,7 +277,6 @@ namespace WamBotRewrite
 
             Console.WriteLine($"{Commands.Count} commands and {ParamConverters.Count} converters ready and waiting!");
 
-            _client.MessageReceived += WamCash_MessageRecieve;
             _client.MessageReceived += ProcessComand_MessageRecieve;
 
             await SetStatusAsync();
@@ -293,67 +292,29 @@ namespace WamBotRewrite
                 await SetStatusAsync();
             });
 
-            var happinessTickdown = Tools.CreateTimer(TimeSpan.FromMinutes(60), (s, e) =>
-            {
-                using (WamBotContext ctx = new WamBotContext())
-                {
-                    User bot = ctx.Users.Find((long)_client.CurrentUser.Id);
-                    if (bot == null)
-                    {
-                        bot = new User(_client.CurrentUser);
-                        ctx.Users.Add(bot);
-                        ctx.SaveChanges();
-                    }
-                    ctx.Users.Attach(bot);
-
-
-                    foreach (User data in ctx.Users)
-                    {
-                        if (Tools.GetHappinessLevel(data.Happiness) == HappinessLevel.Hate)
-                        {
-                            data.Happiness = (sbyte)(((int)data.Happiness) + 1)
-                                .Clamp(sbyte.MinValue, sbyte.MaxValue);
-                        }
-                        else
-                        {
-                            data.Happiness = (sbyte)(((int)data.Happiness) - 1)
-                                .Clamp(sbyte.MinValue, sbyte.MaxValue);
-                        }
-                    }
-
-                    foreach (var p in _store)
-                    {
-                        if (p.Value > 0)
-                        {
-                            var u = Client.GetUser(p.Key);
-
-                            if (u != null)
-                            {
-                                var d = ctx.Users.Find((long)p.Key);
-                                if (d == null)
-                                {
-                                    d = new User(u);
-                                    ctx.Users.Add(d);
-                                    ctx.SaveChanges();
-                                }
-
-                                ctx.Attach(d);
-
-                                bot.Balance -= p.Value;
-                                d.Balance += p.Value;
-
-                                Transaction t = new Transaction(bot, d, p.Value, "Hourly Payment");
-                                ctx.Transactions.Add(t);
-                            }
-                        }
-                    }
-
-                    _store.Clear();
-                    ctx.SaveChanges();
-                }
-            });
+            var happinessTickdown = Tools.CreateTimer(TimeSpan.FromHours(12), HappinessTickdown);
 
             await Task.Delay(-1);
+        }
+
+        public static void HappinessTickdown(object sender, ElapsedEventArgs e)
+        {
+            using (WamBotContext ctx = new WamBotContext())
+            {
+                foreach (User data in ctx.Users)
+                {
+                    if (Tools.GetHappinessLevel(data.Happiness) == HappinessLevel.Hate)
+                    {
+                        data.Happiness = (sbyte)(((int)data.Happiness) + 1)
+                            .Clamp(sbyte.MinValue, sbyte.MaxValue);
+                    }
+                    else
+                    {
+                        data.Happiness = (sbyte)(((int)data.Happiness) - 1)
+                            .Clamp(sbyte.MinValue, sbyte.MaxValue);
+                    }
+                }
+            }
         }
 
         private static async Task SetStatusAsync()
@@ -384,32 +345,6 @@ namespace WamBotRewrite
 
             _client.Log += DiscordClient_Log;
             await _client.LoginAsync(TokenType.Bot, _config.Token);
-        }
-
-        private static async Task WamCash_MessageRecieve(SocketMessage arg)
-        {
-            if (!arg.Author.IsCurrent() && !arg.Author.IsBot)
-            {
-                decimal add = 0.10m;
-                if (arg.Attachments.Any())
-                {
-                    add += 0.05m;
-                }
-
-                if (arg.Embeds.Any())
-                {
-                    add += 0.05m;
-                }
-
-                if (_store.ContainsKey(arg.Author.Id))
-                {
-                    _store[arg.Author.Id] += add;
-                }
-                else
-                {
-                    _store.TryAdd(arg.Author.Id, add);
-                }
-            }
         }
 
         private static async Task ProcessComand_MessageRecieve(SocketMessage arg)
@@ -533,8 +468,13 @@ namespace WamBotRewrite
                 using (WamBotContext db = new WamBotContext())
                 {
                     CommandContext context = new CommandContext(commandSegments.ToArray(), message, _client, db);
-                    User data = await db.Users.GetOrCreateAsync(db, (long)author.Id, () => new User(author));
-                    context.UserData = data;
+
+                    context.UserData = await db.Users.GetOrCreateAsync(db, (long)author.Id, () => new User(author));
+                    if (channel is IGuildChannel gc)
+                    {
+                        context.GuildData = await db.Guilds.GetOrCreateAsync(db, (long)gc.GuildId, () => new Guild(gc.Guild));
+                        context.ChannelData = await db.Channels.GetOrCreateAsync(db, (long)channel.Id, () => new Channel(gc));
+                    }
 
                     string[] cmdsegarr = commandSegments.ToArray();
                     await command.Run(cmdsegarr, context);
@@ -591,6 +531,8 @@ namespace WamBotRewrite
             {
                 Console.WriteLine($"\n --- Something's fucked up! --- \n{ex.ToString()}\n");
                 _telemetryClient?.TrackException(ex, new Dictionary<string, string> { { "command", command.GetType().Name } });
+
+                ex = ex.InnerException ?? ex;
 
                 new Task(async () =>
                 {

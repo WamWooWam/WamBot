@@ -15,18 +15,17 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.ApplicationInsights" Version="2.6.0-beta2" />
     <PackageReference Include="Microsoft.ApplicationInsights.WindowsServer" Version="2.6.0-beta2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.1.0-preview1-final" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" Version="2.1.0-preview1-final" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.0.2" />
     <PackageReference Include="NAudio" Version="1.8.4" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.9" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="2.0.1" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="2.0.0-preview1" />
     <PackageReference Include="SixLabors.ImageSharp" Version="1.0.0-beta0002" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta0002" />
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="1.1.10-pre20180223200113" />
-    <PackageReference Include="SQLitePCLRaw.provider.e_sqlite3.net45" Version="1.1.10-pre20180223200113" />
     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
     <PackageReference Include="taglib" Version="2.1.0" />
     
-    <PackageReference Include="Discord.Net" Version="2.0.0-beta2-00903" />
+    <PackageReference Include="Discord.Net" Version="2.0.0-beta2-00908" />
 
     <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools" Version="2.0.1" />
     <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools.DotNet" Version="2.0.1" />
@@ -44,6 +43,10 @@
     <None Update="opus.dll">
       <CopyToOutputDirectory>IfNewer</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Migrations\" />
   </ItemGroup>
 
 </Project>

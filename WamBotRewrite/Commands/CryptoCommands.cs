@@ -65,7 +65,7 @@ namespace WamBotRewrite.Commands
             await RunCryptoCommand(ctx, "SHA-512", _sha512.Value, str, repetitions);
         }
 
-        [Command("AES Encrypt", "Encrypts a string using AES with a specified key.", new[] { "aesenc" })]
+        [Command("AES Encrypt", "Encrypts a string using AES with a specified key.", new[] { "aesenc", "aes-encrypt" })]
         public async Task AESEncrypt(CommandContext ctx, string str, byte[] key = null)
         {
             var stopwatch = Stopwatch.StartNew();
@@ -115,7 +115,7 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        [Command("AES Decrypt", "Decrypts a string using AES with a specified key.", new[] { "aesdec" })]
+        [Command("AES Decrypt", "Decrypts a string using AES with a specified key.", new[] { "aesdec", "aes-decrypt" })]
         public async Task AESDecrypt(CommandContext ctx, byte[] data, byte[] key)
         {
             var stopwatch = Stopwatch.StartNew();

@@ -17,7 +17,36 @@ namespace WamBotRewrite.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn)
                 .HasAnnotation("ProductVersion", "2.0.2-rtm-10011");
+
+            modelBuilder.Entity("WamBotRewrite.Data.Channel", b =>
+                {
+                    b.Property<long>("ChannelId")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<long>("GuildId");
+
+                    b.Property<bool>("MarkovEnabled");
+
+                    b.HasKey("ChannelId");
+
+                    b.HasIndex("GuildId");
+
+                    b.ToTable("Channels");
+                });
+
+            modelBuilder.Entity("WamBotRewrite.Data.Guild", b =>
+                {
+                    b.Property<long>("GuildId")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<long?>("AnnouncementChannelId");
+
+                    b.HasKey("GuildId");
+
+                    b.ToTable("Guilds");
+                });
 
             modelBuilder.Entity("WamBotRewrite.Data.Transaction", b =>
                 {
@@ -59,6 +88,14 @@ namespace WamBotRewrite.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("WamBotRewrite.Data.Channel", b =>
+                {
+                    b.HasOne("WamBotRewrite.Data.Guild", "Guild")
+                        .WithMany("Channels")
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("WamBotRewrite.Data.Transaction", b =>

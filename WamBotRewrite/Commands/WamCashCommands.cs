@@ -1,10 +1,12 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Timers;
 using WamBotRewrite.Api;
 using WamBotRewrite.Data;
 
@@ -15,6 +17,14 @@ namespace WamBotRewrite.Commands
         public override string Name => "WamCash";
 
         public override string Description => "My virtual economy, what makes my world go round";
+
+        static ConcurrentDictionary<ulong, decimal> _store = new ConcurrentDictionary<ulong, decimal>();
+
+        public WamCashCommands()
+        {
+            var hourlyPayments = Tools.CreateTimer(TimeSpan.FromHours(1), HourlyPayments);
+            Program.Client.MessageReceived += WamCash_MessageRecieve;
+        }
 
         [Command("Transfer", "Send money to someone maybe special!", new[] { "trans", "give", "transfer" })]
         public async Task Transfer(CommandContext ctx, IUser user, decimal amount)
@@ -147,7 +157,7 @@ namespace WamBotRewrite.Commands
         [Command("Set Balance", "Sets a user's current balance.", new[] { "setbal" })]
         public async Task SetBalance(CommandContext ctx, IUser user, decimal bal)
         {
-            var bot = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)ctx.Client.CurrentUser.Id, () => new User(ctx.Client.CurrentUser));
+            var bot = await GetBotUserAsync(ctx);
             var d = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, () => new User(user));
 
             Transaction t = new Transaction(bot, d, bal - d.Balance, "Hax");
@@ -157,6 +167,72 @@ namespace WamBotRewrite.Commands
             d.Balance = bal;
 
             await ctx.DbContext.SaveChangesAsync();
+        }
+
+        private static Task WamCash_MessageRecieve(SocketMessage arg)
+        {
+            if (!arg.Author.IsCurrent() && !arg.Author.IsBot)
+            {
+                decimal add = 0.10m;
+                if (arg.Attachments.Any())
+                {
+                    add += 0.05m;
+                }
+
+                if (arg.Embeds.Any())
+                {
+                    add += 0.05m;
+                }
+
+                if (_store.ContainsKey(arg.Author.Id))
+                {
+                    _store[arg.Author.Id] += add;
+                }
+                else
+                {
+                    _store.TryAdd(arg.Author.Id, add);
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private static async void HourlyPayments(object sender, ElapsedEventArgs e)
+        {
+            using (WamBotContext ctx = new WamBotContext())
+            {
+                User bot = await ctx.Users.GetOrCreateAsync(ctx, (long)Program.Client.CurrentUser.Id, () => new User(Program.Client.CurrentUser) { Balance = int.MaxValue / 8 });
+
+                foreach (var p in _store)
+                {
+                    if (p.Value > 0)
+                    {
+                        var u = Program.Client.GetUser(p.Key);
+
+                        if (u != null)
+                        {
+                            var d = ctx.Users.Find((long)p.Key);
+                            if (d == null)
+                            {
+                                d = new User(u);
+                                ctx.Users.Add(d);
+                                ctx.SaveChanges();
+                            }
+
+                            ctx.Attach(d);
+
+                            bot.Balance -= p.Value;
+                            d.Balance += p.Value;
+
+                            Transaction t = new Transaction(bot, d, p.Value, "Hourly Payment");
+                            ctx.Transactions.Add(t);
+                        }
+                    }
+                }
+
+                _store.Clear();
+                ctx.SaveChanges();
+            }
         }
 
         private static async Task RunTransaction(CommandContext ctx, IUser user, decimal amount, User send, User recieve, User bot)
@@ -182,7 +258,7 @@ namespace WamBotRewrite.Commands
 
         private static async Task<User> GetBotUserAsync(CommandContext ctx)
         {
-            return await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)ctx.Client.CurrentUser.Id, () => new User(ctx.Client.CurrentUser) { Balance = uint.MaxValue });
+            return await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)ctx.Client.CurrentUser.Id, () => new User(ctx.Client.CurrentUser) { Balance = int.MaxValue / 8 });
         }
     }
 }
