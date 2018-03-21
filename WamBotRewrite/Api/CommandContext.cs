@@ -114,7 +114,7 @@ namespace WamBotRewrite.Api
             }
             else
             {
-                Channel.SendMessageAsync(content, false, emb);
+                await Channel.SendMessageAsync(content, false, emb);
             }
         }
 
