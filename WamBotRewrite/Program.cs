@@ -15,6 +15,7 @@ using MarkovChains;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using WamBotRewrite.Api;
 using WamBotRewrite.Api.Converters;
@@ -255,6 +256,14 @@ namespace WamBotRewrite
 
             Application = await _client.GetApplicationInfoAsync();
 
+            _client.MessageReceived += ProcessComand_MessageRecieve;
+            _client.Ready += _client_Ready;
+
+            _client.GuildAvailable += _client_GuildAvailable;
+            _client.GuildUnavailable += _client_GuildUnavailable;
+            _client.JoinedGuild += _client_JoinedGuild;
+            _client.LeftGuild += _client_LeftGuild;
+
             Commands.AddRange(new StockCommands().GetCommands());
             Commands.AddRange(new APICommands().GetCommands());
             Commands.AddRange(new MusicCommands().GetCommands());
@@ -277,9 +286,11 @@ namespace WamBotRewrite
 
             Console.WriteLine($"{Commands.Count} commands and {ParamConverters.Count} converters ready and waiting!");
 
-            _client.MessageReceived += ProcessComand_MessageRecieve;
 
-            await SetStatusAsync();
+            using (WamBotContext ctx = new WamBotContext())
+            {
+                await ctx.Database.MigrateAsync();
+            }
 
             var saveTimer = Tools.CreateTimer(TimeSpan.FromMinutes(5), (s, e) =>
             {
@@ -287,14 +298,71 @@ namespace WamBotRewrite
                 File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovCommands.MarkovList));
             });
 
+            var happinessTickdown = Tools.CreateTimer(TimeSpan.FromHours(12), HappinessTickdown);
+
+            await Task.Delay(-1);
+        }
+
+        private static async Task _client_Ready()
+        {
+            await SetStatusAsync();
+
             var statusUpdateTimer = Tools.CreateTimer(TimeSpan.FromMinutes(15), async (s, e) =>
             {
                 await SetStatusAsync();
             });
+        }
 
-            var happinessTickdown = Tools.CreateTimer(TimeSpan.FromHours(12), HappinessTickdown);
+        private static async Task _client_GuildAvailable(SocketGuild arg)
+        {
+            Console.WriteLine($"Guild {arg.Name} is now available.");
 
-            await Task.Delay(-1);
+            if (_config.DisallowedGuilds.Contains(arg.Id))
+            {
+                Console.WriteLine($"Leaving disallowed guild {arg.Name}.");
+
+                var c = Tools.GetFirstChannel(arg);
+                await c.SendMessageAsync(":middle_finger:");
+                await arg.LeaveAsync();
+            }
+            else if (!_config.SeenGuilds.Contains(arg.Id))
+            {
+                await Tools.SendWelcomeMessage(arg);
+
+                File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
+            }
+        }
+
+        private static Task _client_GuildUnavailable(SocketGuild arg)
+        {
+            Console.WriteLine($"Guild {arg.Name} is now unavailable");
+            return Task.CompletedTask;
+        }
+
+        private static async Task _client_JoinedGuild(SocketGuild arg)
+        {
+            Console.WriteLine($"Joined guild {arg.Name}!");
+
+            if (_config.DisallowedGuilds.Contains(arg.Id))
+            {
+                Console.WriteLine($"Leaving disallowed guild {arg.Name}.");
+
+                var c = Tools.GetFirstChannel(arg);
+                await c.SendMessageAsync(":middle_finger:");
+                await arg.LeaveAsync();
+            }
+            else if (!_config.SeenGuilds.Contains(arg.Id))
+            {
+                await Tools.SendWelcomeMessage(arg);
+
+                File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
+            }
+        }
+
+        private static Task _client_LeftGuild(SocketGuild arg)
+        {
+            Console.WriteLine($"Guild {arg.Name} has been removed (kick/ban)");
+            return Task.CompletedTask;
         }
 
         public static void HappinessTickdown(object sender, ElapsedEventArgs e)

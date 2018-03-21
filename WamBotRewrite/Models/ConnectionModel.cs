@@ -90,7 +90,7 @@ namespace WamBotRewrite.Models
             }
 
             output = new WaveOut();
-            output.Init(/* new VolumeWaveProvider16(new WaveFloatTo16Provider(recorder)) { Volume = 0.0f }*/ recorder);
+            output.Init(new VolumeWaveProvider16(new WaveFloatTo16Provider(recorder)) { Volume = 0.0f });
 
             int pingInSamples = (48000 * (Connection.UdpLatency / 1000)) * 2;
             RecordBuffer.ClearBuffer();
@@ -100,10 +100,10 @@ namespace WamBotRewrite.Models
             CancellationTokenSource source = new CancellationTokenSource();
             while (Connected && Recording)
             {
-                foreach(ulong key in AvailableStreams.Keys)
+                foreach (ulong key in AvailableStreams.Keys)
                 {
                     var i = AvailableStreams[key];
-                    if(buffers.TryGetValue(key, out var provider))
+                    if (buffers.TryGetValue(key, out var provider))
                     {
                         ReadToWaveProvider(source, i, provider);
                     }

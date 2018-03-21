@@ -34,7 +34,7 @@ namespace WamBotRewrite.Commands
         public override string Name => "Stock";
 
         public override string Description => "The usual stuff most bots seem to have, including me.";
-        
+
         [Command("Echo", "Echos the text you give it.", new[] { "echo", "say" })]
         public async Task Echo(CommandContext ctx, params string[] args)
         {
@@ -120,7 +120,7 @@ namespace WamBotRewrite.Commands
             builder.AppendLine("```");
             builder.AppendLine(" --- Disposition ---");
 
-            foreach(var u in ctx.DbContext.Users)
+            foreach (var u in ctx.DbContext.Users)
             {
                 var us = ctx.Client.GetUser((ulong)u.UserId);
                 builder.AppendLine($"{us.Username}#{us.Discriminator} - {Tools.GetHappinessLevel(u.Happiness)} ({u.Happiness})");
@@ -340,6 +340,34 @@ namespace WamBotRewrite.Commands
             //builder.AddField("Available Parse Extensions", Program.ParseExtensions.Count.ToString(), true);
 
             await ctx.Channel.SendMessageAsync("", false, builder.Build());
+        }
+
+        [Command("Credits", "All the people who've made me possible!", new[] { "credits" })]
+        public async Task Credits(CommandContext ctx)
+        {
+            var b = ctx.GetEmbedBuilder("Credits");
+            b.AddField(
+                "People", 
+                "The insane people who've helped me out.\n\n" +
+                "<@99801098088370176>   - Main development, building me from the ground up.\n" +
+                "<@235019900618407937>  - Lotta testing, and breaking.\n" +
+                "<@209223383106322432>  - Even more breaking/testing.\n" +
+                "<@243079230034935829>  - Even *more* breaking/testing.\n" +
+                "<@179784808547876872>  - Giving me a reason or two to keep going.\n" +
+                "<@176270023856357376>  - Making sure I keep your privacy in mind.");
+            b.AddField("Libraries", "The code I didn't write.\n\n" +
+                "[.NET Framework v4.6.2](http://dot.net/) - Makin' dev fun!\n" +
+                "[C# 7.2](https://docs.microsoft.com/en-us/dotnet/csharp/) - Also makin' dev fun!\n" +
+                "[Discord.Net](https://github.com/RogueException/Discord.Net) - Because the Discord API is hard.\n" +
+                "[Application Insights](https://azure.microsoft.com/en-us/services/application-insights/) - ~~\">datamining\"~~ Keeping me informed and up to date.\n" +
+                "[NAudio](https://github.com/naudio/NAudio) - Making voice work properly.\n" +
+                "[youtube-dl](https://rg3.github.io/youtube-dl/) - I tried, and failed, to do it myself, and other people did it better.\n" +
+                "[PostgreSQL](https://www.postgresql.org/) - Databasing!\n" +
+                "[ImageSharp](https://github.com/SixLabors/ImageSharp) - Image commands don't write themselves!\n" +
+                "[taglib-sharp](https://github.com/mono/taglib-sharp) - MP3 metadata is hard.\n" +
+                "[kcartlidge/CSharp-Generic-Markov-Chains](https://github.com/kcartlidge/CSharp-Generic-Markov-Chains) - Nice and simple markov gubbins.\n");
+
+            await ctx.ReplyAsync(emb: b.Build());
         }
 
         [OwnerOnly]

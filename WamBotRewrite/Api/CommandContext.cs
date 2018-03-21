@@ -91,7 +91,31 @@ namespace WamBotRewrite.Api
 
         public virtual async Task ReplyAsync(string content = "", bool tts = false, Embed emb = null)
         {
-            await Message.Channel.SendMessageAsync(content, tts, emb);
+            if(content.Length > 2000)
+            {
+                for (int i = 0; i < content.Length; i += 1993)
+                {
+                    string str = content.Substring(i, Math.Min(1993, content.Length - i));
+                    if (content.StartsWith("```") && !str.StartsWith("```"))
+                    {
+                        str = "```" + str;
+                    }
+                    if (content.EndsWith("```") && !str.EndsWith("```"))
+                    {
+                        str = str + "```";
+                    }
+
+                    Console.WriteLine($"Chunking message to {str.Length} chars");
+
+                    await Channel.SendMessageAsync(str);
+
+                    await Task.Delay(2000);
+                }
+            }
+            else
+            {
+                Channel.SendMessageAsync(content, false, emb);
+            }
         }
 
         public virtual async Task<IMessage> ReplyAndAwaitResponseAsync(string content, int timeout = 10_000)

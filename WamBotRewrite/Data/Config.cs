@@ -15,6 +15,7 @@ namespace WamBotRewrite.Data
             
             StatusUpdateInterval = TimeSpan.FromMinutes(5);
             StatusMessages = new string[0];
+            MemeLines = new string[0];
         }
 
         public string Token { get; set; }
@@ -30,6 +31,8 @@ namespace WamBotRewrite.Data
         public HashSet<ulong> DisallowedGuilds { get; set; }
 
         public string[] StatusMessages { get; set; }
+
+        public string[] MemeLines { get; set; }
 
         public Dictionary<ulong, ulong> AnnouncementChnanels { get; set; }
 

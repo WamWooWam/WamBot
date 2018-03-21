@@ -15,7 +15,6 @@ namespace WamBot.Data
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder
-                .UseLoggerFactory(new LoggerFactory())
                 .UseSqlite("Data Source=WamBot.db");
         }
     }

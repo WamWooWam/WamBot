@@ -10,10 +10,6 @@ namespace ImageCommands.Converters
 {
     class ColourConverter : IParamConverter
     {
-        public string Name => "Color";
-
-        public string Description => "Converts a string to a colour";
-
         public Type[] AcceptedTypes => new[] { typeof(Rgba32), typeof(Rgba32?) };
 
         public Task<object> Convert(string arg, Type to, CommandContext context)

@@ -196,6 +196,37 @@ namespace WamBotRewrite
 
             return tel;
         }
+
+        internal static async Task SendWelcomeMessage(SocketGuild arg)
+        {
+            var channel = GetFirstChannel(arg);
+
+            if (channel != null)
+            {
+                await channel.SendMessageAsync("Welcome to WamBot!");
+                await channel.SendMessageAsync("Thank you for adding WamBot to your server! Here's a few quick tips to get you started.");
+                await channel.SendMessageAsync($"Use `{Program.Config.Prefix}help` for a list of available commands. To get info on when commands are added or removed, set an announements channel with `{Program.Config.Prefix}announce`.");
+                await channel.SendMessageAsync($"For more information, visit http://wamwoowam.co.uk/wambot/.");
+            }
+
+            Program.Config.SeenGuilds.Add(arg.Id);
+        }
+
+        internal static ISocketMessageChannel GetFirstChannel(SocketGuild arg)
+        {
+            var channels = arg.TextChannels
+               .OrderBy(c => c.Position);
+
+            var channel =
+                channels.FirstOrDefault(c => c.Name.ToLowerInvariant().Contains("general") && CanSendMessages(arg, c)) ??
+                channels.FirstOrDefault(c => CanSendMessages(arg, c));
+            return channel;
+        }
+
+        internal static bool CanSendMessages(SocketGuild g, IGuildChannel c)
+        {
+            return g.CurrentUser.GetPermissions(c).Has(ChannelPermission.SendMessages);
+        }
     }
 
     public enum HappinessLevel
