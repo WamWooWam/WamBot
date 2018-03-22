@@ -104,12 +104,17 @@ namespace WamBotRewrite.Commands
         [Command("Statement", "Requests a statement from the Bank of Wam", new[] { "statement" })]
         public async Task Statement(CommandContext ctx)
         {
-            if (ctx.Author is SocketGuildUser member)
+            IDMChannel channel = null;
+            if (ctx.Channel is IDMChannel d)
+                channel = d;
+            else if(ctx.Author is IGuildUser u)
+                channel = await u.GetOrCreateDMChannelAsync();
+
+            if (channel != null)
             {
                 var account = ctx.UserData;
-                var channel = await member.GetOrCreateDMChannelAsync();
                 var builder = new EmbedBuilder()
-                    .WithAuthor($"{member.Nickname ?? member.Username} - Bank of Wam", null, member.GetAvatarUrl());
+                    .WithAuthor($"{ctx.Author.Username} - Bank of Wam", null, ctx.Author.GetAvatarUrl());
 
                 builder.AddField("Balance", account.Balance.ToString("N2"));
                 decimal balance = account.Balance;
@@ -122,11 +127,12 @@ namespace WamBotRewrite.Commands
                 }
 
                 await channel.SendMessageAsync(string.Empty, embed: builder.Build());
-                await ctx.ReplyAsync("Your bank statement has been sent. Check your DMs!");
+                if (ctx.Author is IGuildUser u)
+                    await ctx.ReplyAsync("Your bank statement has been sent. Check your DMs!");
             }
             else
             {
-                await ctx.ReplyAsync("Okay what the fuck??");
+                await ctx.ReplyAsync("Sorry! I can't find a DM channel for you!");
             }
         }
 
