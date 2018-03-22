@@ -77,6 +77,7 @@ namespace WamBotRewrite.Commands
             }
         }
 
+        [RequiresGuild]
         [Command("Fine", "Fines a user", new[] { "fine" })]
         [Permissions(UserPermissions = GuildPermission.ManageMessages)]
         public async Task Fine(CommandContext ctx, IUser user, decimal amount)
@@ -100,7 +101,6 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        [RequiresGuild]
         [Command("Statement", "Requests a statement from the Bank of Wam", new[] { "statement" })]
         public async Task Statement(CommandContext ctx)
         {

@@ -495,24 +495,33 @@ namespace WamBotRewrite
                 _processedMessageIds.Add(message.Id);
                 //if (command.ArgumentCountPrecidate(commandSegments.Count()))
                 //{
-                if (Tools.CheckPermissions(Client, (message.Channel is IGuildChannel c ? (IUser)(await c.Guild?.GetCurrentUserAsync()) : (IUser)Client.CurrentUser), channel, command))
+                if (!command.RequiresGuild || channel is IGuildChannel)
                 {
-                    if (Tools.CheckPermissions(Client, author, channel, command))
+                    if (Tools.CheckPermissions(Client, (message.Channel is IGuildChannel c ? (IUser)(await c.Guild?.GetCurrentUserAsync()) : (IUser)Client.CurrentUser), channel, command))
                     {
-                        Console.WriteLine($"[{(message.Channel is IGuildChannel ch ? ch.Guild?.Name : message.Channel.Name)}] Running command \"{command.Name}\" asynchronously.");
-                        new Task(async () => await RunCommandAsync(message, author, channel, commandSegments, commandAlias, command, start)).Start();
+                        if (Tools.CheckPermissions(Client, author, channel, command))
+                        {
+                            Console.WriteLine($"[{(message.Channel is IGuildChannel ch ? ch.Guild?.Name : message.Channel.Name)}] Running command \"{command.Name}\" asynchronously.");
+                            new Task(async () => await RunCommandAsync(message, author, channel, commandSegments, commandAlias, command, start)).Start();
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[{(message.Channel is IGuildChannel ch ? ch.Guild?.Name : message.Channel.Name)}] Attempt to run command without correct user permissions.");
+                            await Tools.SendTemporaryMessage(message, channel, $"Oi! You're not allowed to run that command! Fuck off!");
+                            _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "401", false));
+                        }
                     }
                     else
                     {
-                        Console.WriteLine($"[{(message.Channel is IGuildChannel ch ? ch.Guild?.Name : message.Channel.Name)}] Attempt to run command without correct user permissions.");
-                        await Tools.SendTemporaryMessage(message, channel, $"Oi! You're not allowed to run that command! Fuck off!");
-                        _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "401", false));
+                        Console.WriteLine($"[{(message.Channel is IGuildChannel ch ? ch.Guild?.Name : message.Channel.Name)}] Attempt to run command without correct bot permissions.");
+                        await Tools.SendTemporaryMessage(message, channel, $"Sorry! I don't have permission to run that command in this server! Contact an admin/mod for more info.");
+                        _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "403", false));
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"[{(message.Channel is IGuildChannel ch ? ch.Guild?.Name : message.Channel.Name)}] Attempt to run command without correct bot permissions.");
-                    await Tools.SendTemporaryMessage(message, channel, $"Sorry! I don't have permission to run that command in this server! Contact an admin/mod for more info.");
+                    Console.WriteLine($"[{(message.Channel is IGuildChannel ch ? ch.Guild?.Name : message.Channel.Name)}] Attempt to run command requiring guild within non-guild channel.");
+                    await Tools.SendTemporaryMessage(message, channel, "This command requires a server to run! Sorry!");
                     _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "403", false));
                 }
                 //}
