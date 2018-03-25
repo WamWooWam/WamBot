@@ -6,11 +6,37 @@
     <LangVersion>latest</LangVersion>
     
     <Deterministic>false</Deterministic>
-    <AssemblyVersion>4.0.*</AssemblyVersion>
-    <FileVersion>4.0.*</FileVersion>
+    <!--<AssemblyVersion>4.0.*</AssemblyVersion>
+    <FileVersion>4.0.*</FileVersion>-->
     <AssemblyName>WamBot</AssemblyName>
-    <Platform>x64</Platform>
+    
+    <Platform>x64</Platform>    
+    <StartupObject>WamBotRewrite.Program</StartupObject>
+    <Configurations>Debug;Release;UI</Configurations>
+    <ApplicationIcon />
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UI|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Configuration)'!='UI'">
+    <Compile Remove="UI\**" />
+    <EmbeddedResource Remove="UI\**" />
+    <None Remove="UI\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\FiraCode-Regular.ttf" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.ApplicationInsights" Version="2.6.0-beta2" />
@@ -23,30 +49,34 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="1.0.0-beta0002" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta0002" />
     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
-    <PackageReference Include="taglib" Version="2.1.0" />
-    
-    <PackageReference Include="Discord.Net" Version="2.0.0-beta2-00908" />
+    <PackageReference Include="taglib" Version="2.1.0" />    
+    <PackageReference Include="Discord.Net" Version="2.0.0-beta2-00908" />    
+    <PackageReference Include="TweetinviAPI" Version="2.1.0" />
 
     <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools" Version="2.0.1" />
     <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools.DotNet" Version="2.0.1" />
-
+    
+    <ProjectReference Include="..\..\..\..\Desktop\WamWooWam.Core\WamWooWam.Core\WamWooWam.Core.csproj" />    
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Desktop\WamWooWam.Core\WamWooWam.Core\WamWooWam.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <Resource Include="Resources\FiraCode-Regular.ttf" />
     <None Update="libsodium.dll">
       <CopyToOutputDirectory>IfNewer</CopyToOutputDirectory>
     </None>
     <None Update="opus.dll">
       <CopyToOutputDirectory>IfNewer</CopyToOutputDirectory>
-    </None>
+    </None>    
+    <Folder Include="Migrations\" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Migrations\" />
+    <Reference Include="PresentationBuildTasks" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="XamlBuildTask" />
   </ItemGroup>
 
 </Project>

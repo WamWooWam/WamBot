@@ -108,6 +108,14 @@ namespace WamBotRewrite.Commands
             builder.AddField("Happiness", $"{ctx.HappinessLevel} ({ctx.Happiness})", true);
             builder.AddField("Balance", $"W${ctx.UserData.Balance:N2}", true);
             builder.AddField("Commands Run", ctx.UserData.CommandsRun.ToString(), true);
+            builder.AddField("Markov Training", ctx.UserData.MarkovEnabled ? "Enabled" : "Disabled", true);
+            builder.AddField("Markov Tweets", ctx.UserData.MarkovTwitterEnabled ? "Enabled" : "Disabled", true);
+
+            if (ctx.UserData.TwitterId != 0)
+            {
+                var user = Tweetinvi.User.GetUserFromId(ctx.UserData.TwitterId);
+                builder.AddField("Linked Twitter", $"[@{user.ScreenName}](http://twitter.com/{user.ScreenName}) ({user.Id})", true);
+            }
 
             await ctx.Channel.SendMessageAsync("", false, builder.Build());
         }
@@ -310,6 +318,11 @@ namespace WamBotRewrite.Commands
 
                 await ctx.Channel.SendMessageAsync("", embed: builder.Build());
             }
+
+            if (!foundCommands.Any())
+            {
+                await ctx.ReplyAsync("Unable to find any commands.");
+            }
         }
 
         [Command("Stats", "Mildly uninteresting info and data about my current state.", new[] { "stats", "info", "about" })]
@@ -347,7 +360,7 @@ namespace WamBotRewrite.Commands
         {
             var b = ctx.GetEmbedBuilder("Credits");
             b.AddField(
-                "People", 
+                "People",
                 "The insane people who've helped me out.\n\n" +
                 "<@99801098088370176>   - Main development, building me from the ground up.\n" +
                 "<@235019900618407937>  - Lotta testing, and breaking.\n" +
@@ -439,7 +452,7 @@ namespace WamBotRewrite.Commands
                         .WithDescription("Showing all categories and commands, specify a command or category name for more details!");
 
                 StringBuilder str = new StringBuilder();
-                foreach (var cat in Program.CommandCategories)
+                foreach (var cat in Program.CommandCategories.Where(c => c.Any(r => Tools.CheckPermissions(ctx.Client, ctx.Author, ctx.Channel as ISocketMessageChannel, r) && Tools.CheckPermissions(ctx.Client, ctx.Client.CurrentUser, ctx.Channel as ISocketMessageChannel, r))))
                 {
                     str.Clear();
                     str.AppendLine(cat.Key.Description.Substring(0, cat.Key.Description.IndexOf("\n") != -1 ? cat.Key.Description.IndexOf("\n") : cat.Key.Description.Length));
@@ -448,18 +461,21 @@ namespace WamBotRewrite.Commands
                     bool first = true;
                     foreach (var command in cat.OrderBy(c => c.Aliases.First()))
                     {
-                        if (Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
+                        if (Tools.CheckPermissions(ctx.Client, ctx.Client.CurrentUser, (ISocketMessageChannel)ctx.Channel, command))
                         {
-                            if (!first)
+                            if (Tools.CheckPermissions(ctx.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
                             {
-                                str.Append(", ");
-                            }
-                            else
-                            {
-                                first = !first;
-                            }
+                                if (!first)
+                                {
+                                    str.Append(", ");
+                                }
+                                else
+                                {
+                                    first = !first;
+                                }
 
-                            str.Append(command.Aliases.First());
+                                str.Append(command.Aliases.First());
+                            }
                         }
                     }
 
@@ -477,7 +493,7 @@ namespace WamBotRewrite.Commands
             }
 
             builder
-                .WithFooter($"Another quality product of Wan Kerr Co. Ltd. " +
+                .WithFooter($"{Program.Config.MemeLines[_random.Next(Program.Config.MemeLines.Count())]} - " +
                     $"My current prefix is {Program.Config.Prefix} (duh)", Program.Application.Owner.GetAvatarUrl())
                 .WithCurrentTimestamp();
             await ctx.Channel.SendMessageAsync("", false, builder.Build());

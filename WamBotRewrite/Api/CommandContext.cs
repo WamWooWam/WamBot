@@ -61,6 +61,8 @@ namespace WamBotRewrite.Api
 
         public WamBotContext DbContext { get; private set; }
 
+        internal CommandRunner Command { get; set; }
+
         public Dictionary<string, object> AdditionalData { get; private set; } = new Dictionary<string, object>();
 
         /// <summary>
@@ -68,8 +70,8 @@ namespace WamBotRewrite.Api
         /// </summary>
         public int Happiness
         {
-            get => UserData.Happiness.Clamp(sbyte.MinValue, sbyte.MaxValue);
-            set => UserData.Happiness = (sbyte)(value.Clamp(sbyte.MinValue, sbyte.MaxValue));
+            get => UserData.Happiness;
+            set => UserData.Happiness = (sbyte)((value.Clamp(sbyte.MinValue, sbyte.MaxValue)));
         }
 
         public HappinessLevel HappinessLevel =>
@@ -91,7 +93,7 @@ namespace WamBotRewrite.Api
 
         public virtual async Task ReplyAsync(string content = "", bool tts = false, Embed emb = null)
         {
-            if(content.Length > 2000)
+            if (content.Length > 2000)
             {
                 for (int i = 0; i < content.Length; i += 1993)
                 {
@@ -105,7 +107,7 @@ namespace WamBotRewrite.Api
                         str = str + "```";
                     }
 
-                    Console.WriteLine($"Chunking message to {str.Length} chars");
+                    await Program.LogMessage(this, $"Chunking message to {str.Length} chars");
 
                     await Channel.SendMessageAsync(str);
 
@@ -118,12 +120,12 @@ namespace WamBotRewrite.Api
             }
         }
 
-        public virtual async Task<IMessage> ReplyAndAwaitResponseAsync(string content, int timeout = 10_000)
+        public virtual async Task<IMessage> ReplyAndAwaitResponseAsync(string content, Embed embed = null, int timeout = 10_000)
         {
             _replyCompletionSource = new TaskCompletionSource<IMessage>();
             CancellationTokenSource source = new CancellationTokenSource();
 
-            await ReplyAsync(content);
+            await ReplyAsync(content, emb: embed);
 
             try
             {

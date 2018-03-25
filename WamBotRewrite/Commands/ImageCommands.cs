@@ -65,7 +65,7 @@ namespace WamBotRewrite.Commands
         }
 
         [Command("Ellipse", "Draws an ellipse on to an image.", new[] { "ellipse" })]
-        public async Task Ellipse(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(0, float.MaxValue)] float x, [Range(0, float.MaxValue)] float y, [Range(1, float.MaxValue)] float width, [Range(1, float.MaxValue)] float height, Rgba32? colour = null)
+        public async Task Ellipse(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(0, 8192)] float x, [Range(0, 8192)] float y, [Range(1, 8192)] float width, [Range(1, 8192)] float height, Rgba32? colour = null)
         {
             EllipsePolygon ellipse = new EllipsePolygon(x, y, width, height);
             image.Mutate(i => i.Fill(colour ?? new Rgba32(0, 0, 0), ellipse));
@@ -80,7 +80,7 @@ namespace WamBotRewrite.Commands
         }
 
         [Command("Polygon", "Draws a polygon on to an image.", new[] { "poly", "polygon" })]
-        public async Task Polygon(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(0, float.MaxValue)] float x, [Range(0, float.MaxValue)] float y, [Range(1, int.MaxValue)] int vertecies, [Range(1, float.MaxValue)] float radius, Rgba32? colour = null)
+        public async Task Polygon(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(0, 8192)] float x, [Range(0, 8192)] float y, [Range(1, int.MaxValue)] int vertecies, [Range(1, 8192)] float radius, Rgba32? colour = null)
         {
             colour = colour ?? new Rgba32(0, 0, 0);
             RegularPolygon poly = new RegularPolygon(new SixLabors.Primitives.PointF(x + radius, y + radius), vertecies, radius);
@@ -89,7 +89,7 @@ namespace WamBotRewrite.Commands
         }
 
         [Command("Rectangle", "Draws a rectangle on to an image.", new[] { "rect" })]
-        public async Task Rectangle(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(0, float.MaxValue)] float x, [Range(0, float.MaxValue)] float y, [Range(1, float.MaxValue)] float width, [Range(1, float.MaxValue)] float height, Rgba32? colour = null)
+        public async Task Rectangle(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(0, 8192)] float x, [Range(0, 8192)] float y, [Range(1, 8192)] float width, [Range(1, 8192)] float height, Rgba32? colour = null)
         {
             RectangleF rectangle = new RectangleF(x, y, width, height);
             image.Mutate(i => i.Fill(colour.Value, rectangle));
@@ -280,7 +280,7 @@ namespace WamBotRewrite.Commands
                     baseImage = ChangeImage(ref txtBase);
                 }
 
-                string txt = string.Join("\r\n\r\n", txtBase);
+                string txt = string.Join(" ", txtBase);
 
                 RectangleF size = TextMeasurer.MeasureBounds(txt, new RendererOptions(font) { WrappingWidth = clippyTop.Width - 20 });
                 using (Image<Rgba32> textImage = new Image<Rgba32>(clippyTop.Width, (int)Math.Ceiling(size.Height + 5)))

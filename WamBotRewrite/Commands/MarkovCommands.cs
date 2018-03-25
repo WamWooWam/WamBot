@@ -3,6 +3,7 @@ using MarkovChains;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,6 +11,8 @@ using System.Threading.Tasks;
 using WamBotRewrite.Api;
 using WamBotRewrite.Data;
 using WamWooWam.Core;
+using Tweet = Tweetinvi.Tweet;
+using TwitterUser = Tweetinvi.User;
 
 namespace WamBotRewrite.Commands
 {
@@ -38,6 +41,36 @@ namespace WamBotRewrite.Commands
                     Markovs[pair.Key] = markov;
                 }
             }
+
+            var tweetTimer = Tools.CreateTimer(TimeSpan.FromMinutes(30), async (o, e) =>
+            {
+                using(WamBotContext ctx = new WamBotContext())
+                {
+                    bool tweeted = false;
+                    while (!tweeted)
+                    {
+                        var m = Markovs.ElementAt(Program.Random.Next(Markovs.Count));
+                        var u = ctx.Users.Find((long)m.Key);
+
+                        await Program.LogMessage("MARKOV", $"Attempting to tweet with markov of {u.UserId}");
+
+                        if (u.MarkovTwitterEnabled)
+                        {
+                            var twitter = u.TwitterId != 0 ? TwitterUser.GetUserFromId(u.TwitterId) : null;
+                            var discord = Program.Client.GetUser((ulong)u.UserId);
+                            var mention = twitter != null ? $"@{twitter.ScreenName}" : $"{discord.Username}#{discord.Discriminator}";
+
+                            var output = $"\"{m.Value.Generate(Program.Random.Next(10, 30), " ", true)}\" - {mention}";
+                            Tweet.PublishTweet(output);
+                            tweeted = true;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+                }
+            });
 
             AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
             Program.Client.MessageReceived += Markov_MessageRecieved;
@@ -68,6 +101,35 @@ namespace WamBotRewrite.Commands
             {
                 ctx.UserData.MarkovEnabled = true;
                 await ctx.ReplyAsync("Opted in to automatic markov training!");
+            }
+        }
+
+
+        [Command("Markov Tweets Opt-In",
+            "This command allows you to opt in or out of hourly markov tweets.",
+            new[] { "markov-tweet" },
+            ExtendedDescription = "You can tweet from your markov chain regardless by using the Markov Tweet command!")]
+        public async Task MarkovTwitterOptIn(CommandContext ctx)
+        {
+            if (ctx.UserData.MarkovTwitterEnabled)
+            {
+                try
+                {
+                    var message = await ctx.ReplyAndAwaitResponseAsync(
+                        "Are you sure you want to opt-out of markov tweets?\n" +
+                        "Existing tweets will not be deleted. (Y/N)");
+                    if (message.Content.ToLowerInvariant().StartsWith("y"))
+                    {
+                        ctx.UserData.MarkovTwitterEnabled = false;
+                        await ctx.ReplyAsync("Opted out of markov tweets.");
+                    }
+                }
+                catch { }
+            }
+            else
+            {
+                ctx.UserData.MarkovTwitterEnabled = true;
+                await ctx.ReplyAsync("Opted in to markov tweets!");
             }
         }
 
@@ -126,18 +188,18 @@ namespace WamBotRewrite.Commands
         }
 
         [Command("Markov", "Generates a string based on Markov chains", new[] { "markov", "mark" })]
-        public async Task Markov(CommandContext ctx, int length = 10, IUser user = null)
+        public async Task Markov(CommandContext ctx, [Range(1, 1000)] int length = 10, IUser user = null)
         {
             if (Markovs.TryGetValue(user?.Id ?? ctx.Author.Id, out var markov))
             {
                 var output = markov.Generate(length, " ", true);
                 string str = string.Join(" ", output);
-                await ctx.ReplyAsync($"\"{str.Truncate(1996)}\"");
+                await ctx.ReplyAsync($"\"{str}\"");
             }
             else
             {
                 await ctx.ReplyAsync($"You don't have a markov chain!\n" +
-                    $"Enable automatic markov training with {Program.Config.Prefix}markovin or use {Program.Config.Prefix}train to add some training data!");
+                    $"Enable automatic markov training with `{Program.Config.Prefix}markov-in` or use `{Program.Config.Prefix}train’ to add some training data!");
             }
         }
 
@@ -170,7 +232,7 @@ namespace WamBotRewrite.Commands
                         {
                             if (channel?.MarkovEnabled != false)
                             {
-                                Console.WriteLine($"Adding {JsonConvert.SerializeObject(strings)} to Markov for {arg.Author.Username}#{arg.Author.Discriminator}");
+                                await Program.LogMessage("MARKOV", $"Adding {JsonConvert.SerializeObject(strings)} to Markov for {arg.Author.Username}#{arg.Author.Discriminator}");
 
                                 if (Markovs.TryGetValue(arg.Author.Id, out Markov<string> m))
                                 {
@@ -191,12 +253,12 @@ namespace WamBotRewrite.Commands
                             }
                             else
                             {
-                                Console.WriteLine($"Channel #{arg.Channel.Name} has automatic markov training disabled.");
+                                await Program.LogMessage("MARKOV", $"Channel #{arg.Channel.Name} has automatic markov training disabled.");
                             }
                         }
                         else
                         {
-                            Console.WriteLine($"User {arg.Author.Username}#{arg.Author.Discriminator} has automatic markov training disabled.");
+                            await Program.LogMessage("MARKOV", $"User {arg.Author.Username}#{arg.Author.Discriminator} has automatic markov training disabled.");
                         }
                     }                    
                 }

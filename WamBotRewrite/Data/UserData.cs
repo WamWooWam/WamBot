@@ -24,6 +24,8 @@ namespace WamBotRewrite.Data
         [Key]
         public long UserId { get; set; }
 
+        public long TwitterId { get; set; }
+
         public sbyte Happiness { get; set; }
 
         public long CommandsRun { get; set; }
@@ -31,6 +33,8 @@ namespace WamBotRewrite.Data
         public decimal Balance { get; set; }
 
         public bool MarkovEnabled { get; set; }
+
+        public bool MarkovTwitterEnabled { get; set; }
 
         [InverseProperty("From")]
         public List<Transaction> TransactionsSent { get; set; }

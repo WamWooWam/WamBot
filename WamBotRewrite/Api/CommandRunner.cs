@@ -16,6 +16,8 @@ using Newtonsoft.Json.Schema;
 using Newtonsoft.Json.Schema.Generation;
 using Newtonsoft.Json.Linq;
 using System.ComponentModel.DataAnnotations;
+using System.Runtime.InteropServices;
+using System.Collections.ObjectModel;
 
 namespace WamBotRewrite.Api
 {
@@ -258,7 +260,7 @@ namespace WamBotRewrite.Api
             }
 
             var validationAttributes = info.GetCustomAttributes<ValidationAttribute>();
-            foreach(var attribute in validationAttributes.Where(a => !a.RequiresValidationContext))
+            foreach (var attribute in validationAttributes.Where(a => !a.RequiresValidationContext))
             {
                 if (!attribute.IsValid(obj))
                 {
@@ -286,6 +288,12 @@ namespace WamBotRewrite.Api
 
         internal static void AppendParameter(ParameterInfo[] param, StringBuilder b, ParameterInfo p, bool usage = true)
         {
+            foreach (var a in p.CustomAttributes)
+            {
+                Type at = a.AttributeType;
+                AppendAttribute(b, usage, a, at);
+            }
+
             if (p.IsParams())
             {
                 b.Append("params ");
@@ -295,7 +303,7 @@ namespace WamBotRewrite.Api
 
             if (p.IsOptional)
             {
-                b.Append($" = {p.DefaultValue ?? "null"}");
+                b.Append($" = {PrettyValue(p.DefaultValue)}");
             }
 
             if (p.Position != (usage ? param.Length : param.Length - 1))
@@ -304,6 +312,115 @@ namespace WamBotRewrite.Api
             }
         }
 
+        internal static void AppendAttribute(StringBuilder b, bool usage, CustomAttributeData a, Type at)
+        {
+            if (!at.Namespace.StartsWith("System.Runtime") && at != typeof(DebuggerStepThroughAttribute))
+            {
+                b.Append("[");
+
+                string name = at.Name;
+                b.Append(name.Substring(0, name.Length - 9));
+
+                if (a.ConstructorArguments.Any() || a.NamedArguments.Any())
+                {
+                    b.Append("(");
+
+                    var cps = a.Constructor.GetParameters();
+                    for (int i = 0; i < cps.Length; i++)
+                    {
+                        var ap = a.ConstructorArguments.ElementAt(i);
+                        var cp = cps.ElementAt(i);
+
+                        if (i != 0)
+                        {
+                            b.Append(", ");
+                        }
+
+                        if (usage)
+                            b.Append($"{cp.Name}: {PrettyValue(ap.Value)}");
+                        else
+                            b.Append(PrettyValue(ap.Value));
+                    }
+
+                    for (int i = 0; i < a.NamedArguments.Count; i++)
+                    {
+                        if (i != 0 || a.ConstructorArguments.Any())
+                        {
+                            b.Append(", ");
+                        }
+
+                        var op = a.NamedArguments.ElementAt(i);
+                        b.Append($"{op.MemberName} = {PrettyValue(op.TypedValue.Value)}");
+                    }
+
+                    b.Append(")");
+                }
+
+                b.Append("] ");
+
+                if (!usage)
+                    b.AppendLine();
+            }
+        }
+
+        private static string PrettyValue(object value)
+        {
+            StringBuilder b = new StringBuilder();
+
+            if (value != null)
+            {
+
+                if (value is Array a)
+                {
+                    b.Append("new[] { ");
+                    for (int i = 0; i < a.Length; i++)
+                    {
+                        if (i != 0)
+                        {
+                            b.Append(", ");
+                        }
+
+                        var o = a.Cast<object>().ElementAt(i);
+                        b.Append(PrettyValue(o));
+                    }
+                    b.Append(" }");
+                }
+
+                if (value is ReadOnlyCollection<CustomAttributeTypedArgument> c)
+                {
+                    b.Append("new[] { ");
+                    for (int i = 0; i < c.Count; i++)
+                    {
+                        if (i != 0)
+                        {
+                            b.Append(", ");
+                        }
+
+                        var o = c.ElementAt(i);
+                        b.Append(PrettyValue(o));
+                    }
+                    b.Append(" }");
+                }
+
+                if (value is string s)
+                {
+                    b.Append($"\"{s}\"");
+                }
+
+                if (value is Enum e)
+                {
+                    b.Append(e.GetType().Name);
+                    b.Append(".");
+                    b.Append(value);
+                }
+            }
+            else
+            {
+                return "null";
+            }
+
+            return b.Length > 0 ? b.ToString() : value.ToString();
+        }
 
         internal static string PrettyTypeName(Type t)
         {

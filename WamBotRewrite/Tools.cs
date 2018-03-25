@@ -94,6 +94,17 @@ namespace WamBotRewrite
         public static string GetMethodDeclaration(MethodInfo method)
         {
             StringBuilder builder = new StringBuilder();
+            
+            foreach(var attr in method.DeclaringType.CustomAttributes)
+            {
+                CommandRunner.AppendAttribute(builder, false, attr, attr.AttributeType);
+            }
+
+            foreach(var attr in method.CustomAttributes)
+            {
+                CommandRunner.AppendAttribute(builder, false, attr, attr.AttributeType);
+            }
+
             if (method.IsPublic)
                 builder.Append("public ");
             else if (method.IsPrivate)

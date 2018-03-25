@@ -11,9 +11,10 @@ using WamBotRewrite.Data;
 namespace WamBotRewrite.Migrations
 {
     [DbContext(typeof(WamBotContext))]
-    partial class WamBotContextModelSnapshot : ModelSnapshot
+    [Migration("20180324195227_Tweets")]
+    partial class Tweets
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -86,8 +87,6 @@ namespace WamBotRewrite.Migrations
                     b.Property<bool>("MarkovEnabled");
 
                     b.Property<bool>("MarkovTwitterEnabled");
-
-                    b.Property<long>("TwitterId");
 
                     b.HasKey("UserId");
 

@@ -11,9 +11,10 @@ using WamBotRewrite.Data;
 namespace WamBotRewrite.Migrations
 {
     [DbContext(typeof(WamBotContext))]
-    partial class WamBotContextModelSnapshot : ModelSnapshot
+    [Migration("20180324211429_Tweets2TwitterBoogaloo")]
+    partial class Tweets2TwitterBoogaloo
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
