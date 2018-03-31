@@ -30,12 +30,12 @@ namespace MarkovChains
         /// <summary>Holds details of a key and a possible sequence for it</summary>
         /// <typeparam name="T">Any type that implements IComparable. For example a string type would provide
         /// Markov sentences, a character type Markov words.</typeparam>
-        private class Sequence<T> where T : IComparable
+        private class Sequence<TSequence> where TSequence : IComparable
         {
             /// <summary>The key for this sequence</summary>
-            public T Entry { get; set; }
+            public TSequence Entry { get; set; }
             /// <summary>One possible chain of entries to follow this key</summary>
-            public List<T> EntryChain { get; set; }
+            public List<TSequence> EntryChain { get; set; }
         }
         #endregion
 
@@ -79,9 +79,12 @@ namespace MarkovChains
                     // Add the new trained sequence into the collection.
                     if (entryChain.Count > 0)
                     {
-                        Sequence<T> entry = new Sequence<T>();
-                        entry.Entry = key;
-                        entry.EntryChain = entryChain;
+                        Sequence<T> entry = new Sequence<T>
+                        {
+                            Entry = key,
+                            EntryChain = entryChain
+                        };
+
                         TrainedSequences.Add(entry);
                     }
                 }

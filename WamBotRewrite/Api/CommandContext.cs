@@ -93,6 +93,11 @@ namespace WamBotRewrite.Api
 
         public virtual async Task ReplyAsync(string content = "", bool tts = false, Embed emb = null)
         {
+            if (DateTime.Now.IsAprilFools())
+            {
+                content = content.Replace("n", "ny").Replace("r", "w");
+            }
+
             if (content.Length > 2000)
             {
                 for (int i = 0; i < content.Length; i += 1993)
@@ -109,6 +114,8 @@ namespace WamBotRewrite.Api
 
                     await Program.LogMessage(this, $"Chunking message to {str.Length} chars");
 
+                    if (ChannelData != null)
+                        ChannelData.MessagesSent += 1;
                     await Channel.SendMessageAsync(str);
 
                     await Task.Delay(2000);
@@ -116,6 +123,9 @@ namespace WamBotRewrite.Api
             }
             else
             {
+                if (ChannelData != null)
+                    ChannelData.MessagesSent += 1;
+
                 await Channel.SendMessageAsync(content, false, emb);
             }
         }

@@ -12,9 +12,10 @@ using WamBotRewrite.Data;
 namespace WamBotRewrite.Migrations
 {
     [DbContext(typeof(WamBotContext))]
-    partial class WamBotContextModelSnapshot : ModelSnapshot
+    [Migration("20180331121503_Info")]
+    partial class Info
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -18,7 +18,10 @@ namespace WamBotRewrite.Data
         public Guild(IGuild guild) : this()
         {
             GuildId = (long)guild.Id;
+            Name = guild.Name;
         }
+
+        public string Name { get; set; }
 
         [Key]
         public long GuildId { get; set; }

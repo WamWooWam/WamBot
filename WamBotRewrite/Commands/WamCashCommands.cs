@@ -107,7 +107,7 @@ namespace WamBotRewrite.Commands
             IDMChannel channel = null;
             if (ctx.Channel is IDMChannel d)
                 channel = d;
-            else if(ctx.Author is IGuildUser u)
+            else if (ctx.Author is IGuildUser u)
                 channel = await u.GetOrCreateDMChannelAsync();
 
             if (channel != null)
@@ -203,11 +203,11 @@ namespace WamBotRewrite.Commands
             return Task.CompletedTask;
         }
 
-        private static async void HourlyPayments(object sender, ElapsedEventArgs e)
+        private static void HourlyPayments(object sender, ElapsedEventArgs e)
         {
             using (WamBotContext ctx = new WamBotContext())
             {
-                User bot = await ctx.Users.GetOrCreateAsync(ctx, (long)Program.Client.CurrentUser.Id, () => new User(Program.Client.CurrentUser) { Balance = int.MaxValue / 8 });
+                User bot = ctx.Users.GetOrCreate(ctx, (long)Program.Client.CurrentUser.Id, () => new User(Program.Client.CurrentUser) { Balance = int.MaxValue / 8 });
 
                 foreach (var p in _store)
                 {
@@ -262,9 +262,9 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        private static async Task<User> GetBotUserAsync(CommandContext ctx)
+        private static Task<User> GetBotUserAsync(CommandContext ctx)
         {
-            return await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)ctx.Client.CurrentUser.Id, () => new User(ctx.Client.CurrentUser) { Balance = int.MaxValue / 8 });
+            return ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)ctx.Client.CurrentUser.Id, () => new User(ctx.Client.CurrentUser) { Balance = int.MaxValue / 8 });
         }
     }
 }

@@ -19,21 +19,22 @@ namespace WamBotRewrite.Data
         internal User(IUser author) : this()
         {
             UserId = (long)author.Id;
+            Username = author.Username;
+            Discriminator = author.Discriminator;
         }
+
+        public string Username { get; set; }
+        public string Discriminator { get; set; }
 
         [Key]
         public long UserId { get; set; }
-
         public long TwitterId { get; set; }
 
         public sbyte Happiness { get; set; }
-
         public long CommandsRun { get; set; }
-
         public decimal Balance { get; set; }
 
         public bool MarkovEnabled { get; set; }
-
         public bool MarkovTwitterEnabled { get; set; }
 
         [InverseProperty("From")]

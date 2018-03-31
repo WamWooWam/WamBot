@@ -16,6 +16,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using WamBotRewrite.Api;
+using WamBotRewrite.Data;
 using WamBotRewrite.Models;
 using WamWooWam.Core.Windows;
 
@@ -24,14 +25,13 @@ namespace WamBotRewrite.Commands
     [RequiresGuild]
     class MusicCommands : CommandCategory
     {
-        private static HttpClient _httpClient = new HttpClient();
         private static Lazy<MD5> _md5 = new Lazy<MD5>(() => MD5.Create());
         private static readonly ConcurrentDictionary<ulong, ConnectionModel> _activeConnections = new ConcurrentDictionary<ulong, ConnectionModel>();
 
         public override string Name => "Music";
 
         public override string Description => "Allows me to connect to voice channels and play music!";
-        
+
         [Command("Join", "Joins me to a voice channel.", new[] { "join" })]
         public async Task Join(CommandContext ctx)
         {
@@ -46,6 +46,11 @@ namespace WamBotRewrite.Commands
                         _activeConnections[guildUser.GuildId] = model;
 
                         await ctx.ReplyAsync($"Connected to {guildUser.VoiceChannel.Name}!");
+
+                        var data = await ctx.DbContext.Channels.GetOrCreateAsync(ctx.DbContext, (long)guildUser.VoiceChannel.Id, () => new Channel(guildUser.VoiceChannel));
+                        data.Connections += 1;
+                        await ctx.DbContext.SaveChangesAsync();
+
                         await MusicPlayLoop(ctx.Channel, model);
                     }
                     else
@@ -528,6 +533,11 @@ namespace WamBotRewrite.Commands
                                 VolumeSampleProvider volume = new VolumeSampleProvider(resampler.ToSampleProvider()) { Volume = connection.Volume };
                                 connection.SampleProvider = volume;
                                 IWaveProvider waveProvider = connection.SampleProvider.ToWaveProvider16();
+
+                                if (reader.WaveFormat.Channels == 1)
+                                {
+                                    waveProvider = new MonoToStereoProvider16(waveProvider);
+                                }
 
                                 connection.Total = reader.TotalTime;
                                 connection.NowPlaying = model;

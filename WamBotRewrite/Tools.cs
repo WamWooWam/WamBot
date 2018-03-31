@@ -11,10 +11,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
 using WamBotRewrite.Api;
+using WamWooWam.Core;
 
 namespace WamBotRewrite
 {
-    static class Tools
+    internal static class Tools
     {
         internal static bool IsImplicit(this ParameterInfo param)
         {
@@ -24,6 +25,11 @@ namespace WamBotRewrite
         internal static bool IsParams(this ParameterInfo param)
         {
             return param.IsDefined(typeof(ParamArrayAttribute), false);
+        }
+
+        internal static bool IsAprilFools(this DateTime time)
+        {
+            return time.Day == 1 && time.Month == 4 && time.Hour < 12;
         }
 
         internal static async Task SendTemporaryMessage(IMessage m, IMessageChannel c, string mess, int timeout = 5_000)
@@ -37,7 +43,7 @@ namespace WamBotRewrite
             }).Start();
         }
 
-        internal static bool CheckPermissions(DiscordSocketClient client, IUser author, ISocketMessageChannel channel, CommandRunner command)
+        internal static bool CheckPermissions(DiscordSocketClient client, IUser author, IMessageChannel channel, CommandRunner command)
         {
             bool go = true;
 
@@ -75,6 +81,21 @@ namespace WamBotRewrite
                 value = createPrecidate();
                 await db.AddAsync(value);
                 await ctx.SaveChangesAsync();
+            }
+
+            db.Attach(value);
+
+            return value;
+        }
+
+        public static T GetOrCreate<T>(this DbSet<T> db, DbContext ctx, object key, Func<T> createPrecidate) where T : class
+        {
+            T value = db.Find(key);
+            if (value == null)
+            {
+                value = createPrecidate();
+                db.Add(value);
+                ctx.SaveChanges();
             }
 
             db.Attach(value);
@@ -197,7 +218,7 @@ namespace WamBotRewrite
             return HappinessLevel.Indifferent;
         }
 
-        internal static RequestTelemetry GetRequestTelemetry(SocketUser author, ISocketMessageChannel channel, CommandRunner command, DateTimeOffset start, string code, bool success)
+        internal static RequestTelemetry GetRequestTelemetry(IUser author, IMessageChannel channel, CommandRunner command, DateTimeOffset start, string code, bool success)
         {
             RequestTelemetry tel = new RequestTelemetry(command?.GetType().Name ?? "N/A", start, DateTimeOffset.Now - start, code, success);
             tel.Properties.Add("invoker", author.Id.ToString());
@@ -237,6 +258,47 @@ namespace WamBotRewrite
         internal static bool CanSendMessages(SocketGuild g, IGuildChannel c)
         {
             return g.CurrentUser.GetPermissions(c).Has(ChannelPermission.SendMessages);
+        }
+
+        internal static void ManageException(IMessage message, IMessageChannel channel, Exception ex, CommandRunner command)
+        {
+            if (!(ex is TaskCanceledException) && !(ex is OperationCanceledException))
+            {
+                Console.WriteLine($"\n --- Something's fucked up! --- \n{ex.ToString()}\n");
+                Program.TelemetryClient?.TrackException(ex, new Dictionary<string, string> { { "command", command.GetType().Name } });
+
+                ex = ex.InnerException ?? ex;
+
+#if UI
+                App.Current.Dispatcher.Invoke(() =>
+                {
+                    ((MainWindow)App.Current.MainWindow).recentExceptions.Items.Add(ex);
+                });
+#endif
+
+                new Task(async () =>
+                {
+                    try
+                    {
+                        EmbedBuilder builder = new EmbedBuilder()
+                            .WithAuthor($"Error - WamBot {Assembly.GetEntryAssembly().GetName().Version.ToString(3)}", Program.Application?.IconUrl)
+                            .WithDescription($"Something's gone very wrong executing that command, and an {ex.GetType().Name} occured.")
+                            .WithFooter("This message will be deleted in 10 seconds")
+                            .WithTimestamp(DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10))
+                            .WithColor(255, 0, 0);
+                        builder.AddField("Message", $"```{ex.Message.Truncate(1016)}```");
+#if DEBUG
+                        builder.AddField("Stack Trace", $"```{ex.StackTrace.Truncate(1016)}```");
+#endif
+
+                        IUserMessage msg = await channel.SendMessageAsync("", embed: builder.Build());
+
+                        await Task.Delay(10_000);
+                        await msg.DeleteAsync();
+                    }
+                    catch { }
+                }).Start();
+            }
         }
     }
 

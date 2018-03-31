@@ -4,11 +4,14 @@ using System.Reflection;
 using System.Text;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Net.Http;
 
 namespace WamBotRewrite.Api
 {
     public abstract class CommandCategory
     {
+        protected static HttpClient _httpClient { get; private set; } = new HttpClient();
+
         public abstract string Name { get; }
         public abstract string Description { get; }
 

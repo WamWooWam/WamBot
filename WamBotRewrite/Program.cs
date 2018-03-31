@@ -42,6 +42,7 @@ namespace WamBotRewrite
         internal static DiscordRestClient RestClient => _restClient;
         internal static Config Config => _config;
         internal static Random Random => _random;
+        internal static TelemetryClient TelemetryClient => _telemetryClient;
 
         static List<ulong> _processedMessageIds = new List<ulong>();
         static DiscordSocketClient _client;
@@ -49,6 +50,8 @@ namespace WamBotRewrite
         static TelemetryClient _telemetryClient;
         static Config _config;
         static Random _random = new Random();
+
+        internal static ConcurrentQueue<CommandRequest> Requests { get; private set; } = new ConcurrentQueue<CommandRequest>();
 
 #pragma warning disable CS4014 // Sometimes this is intended behaviour
 
@@ -159,7 +162,7 @@ namespace WamBotRewrite
 #endif
         }
 
-        internal static async Task LogMessage(SocketMessage message, string text)
+        internal static async Task LogMessage(IMessage message, string text)
         {
             await LogMessage(message.Channel.Name, text);
         }
@@ -287,7 +290,7 @@ namespace WamBotRewrite
                 TelemetryConfiguration.Active.DisableTelemetry = true;
             }
 
-            if(_config.TwitterCredentials != new Tweetinvi.Models.TwitterCredentials())
+            if (_config.TwitterCredentials != new Tweetinvi.Models.TwitterCredentials())
             {
                 Tweetinvi.Auth.SetCredentials(Config.TwitterCredentials);
                 await LogMessage("STARTUP", "Twitter credentials configured!");
@@ -344,6 +347,7 @@ namespace WamBotRewrite
 
             var happinessTickdown = Tools.CreateTimer(TimeSpan.FromHours(12), HappinessTickdown);
 
+
             File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
 
             await Task.Delay(-1);
@@ -374,8 +378,35 @@ namespace WamBotRewrite
             else if (!_config.SeenGuilds.Contains(arg.Id))
             {
                 await Tools.SendWelcomeMessage(arg);
-
                 File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
+            }
+
+            using (WamBotContext ctx = new WamBotContext())
+            {
+                await LogMessage("DATABASE", $"Ensuring guild for {arg}");
+                var g = await ctx.Guilds.GetOrCreateAsync(ctx, (long)arg.Id, () => new Guild(arg));
+                g.Name = arg.Name;
+
+                //await arg.DownloadUsersAsync();
+                foreach (var user in arg.Users)
+                {
+                    await LogMessage("DATABASE", $"Ensuring user for {user}");
+                    var u = await ctx.Users.GetOrCreateAsync(ctx, (long)user.Id, () => new User(user));
+
+                    u.Username = user.Username;
+                    u.Discriminator = user.Discriminator;
+                }
+
+                foreach (var channel in arg.Channels)
+                {
+                    await LogMessage("DATABASE", $"Ensuring channel for {channel}");
+                    var c = await ctx.Channels.GetOrCreateAsync(ctx, (long)channel.Id, () => new Channel(channel));
+
+                    c.Name = channel.Name;
+                    c.Type = channel is ITextChannel ? ChannelType.Text : ChannelType.Voice;
+                }
+
+                await ctx.SaveChangesAsync();
             }
         }
 
@@ -413,19 +444,21 @@ namespace WamBotRewrite
         {
             using (WamBotContext ctx = new WamBotContext())
             {
-                foreach (User data in ctx.Users)
+                foreach (User data in ctx.Users.Where(u => u.CommandsRun > 0))
                 {
                     if (Tools.GetHappinessLevel(data.Happiness) == HappinessLevel.Hate)
                     {
-                        data.Happiness = (sbyte)(((int)data.Happiness) + 1)
+                        data.Happiness = (sbyte)(((int)data.Happiness) + 2)
                             .Clamp(sbyte.MinValue, sbyte.MaxValue);
                     }
                     else
                     {
-                        data.Happiness = (sbyte)(((int)data.Happiness) - 1)
+                        data.Happiness = (sbyte)(((int)data.Happiness) - 2)
                             .Clamp(sbyte.MinValue, sbyte.MaxValue);
                     }
                 }
+
+                ctx.SaveChanges();
             }
         }
 
@@ -464,7 +497,7 @@ namespace WamBotRewrite
             await ProcessMessage(arg, arg.Author, arg.Channel);
         }
 
-        private static async Task ProcessMessage(SocketMessage message, SocketUser author, ISocketMessageChannel channel)
+        private static async Task ProcessMessage(IMessage message, IUser author, ISocketMessageChannel channel)
         {
             try
             {
@@ -476,11 +509,6 @@ namespace WamBotRewrite
                         await LogMessage(message, $"Found command prefix, parsing...");
                         IEnumerable<string> commandSegments = Strings.SplitCommandLine(message.Content.Substring(_config.Prefix.Length));
 
-                        //foreach (IParseExtension extenstion in _parseExtensions)
-                        //{
-                        //    commandSegments = extenstion.Parse(commandSegments, channel);
-                        //}
-
                         if (commandSegments.Any())
                         {
                             string commandAlias = commandSegments.First().ToLower();
@@ -490,7 +518,7 @@ namespace WamBotRewrite
                             {
                                 if (foundCommands.Count() == 1)
                                 {
-                                    await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, commandToRun, startTime);
+                                    ExecuteCommand(message, commandSegments.Skip(1), commandToRun, startTime);
                                 }
                                 else if (commandSegments.Count() >= 2)
                                 {
@@ -500,13 +528,13 @@ namespace WamBotRewrite
 
                                     if (foundCommands != null && foundCommands.Count() == 1)
                                     {
-                                        await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(2), commandAlias, foundCommands.First(), startTime);
+                                        ExecuteCommand(message, commandSegments.Skip(2), foundCommands.First(), startTime);
                                     }
                                     else
                                     {
                                         if (commandToRun != null)
                                         {
-                                            await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, foundCommands.First(), startTime);
+                                            ExecuteCommand(message, commandSegments.Skip(1), foundCommands.First(), startTime);
                                         }
                                         else
                                         {
@@ -518,7 +546,7 @@ namespace WamBotRewrite
                                 }
                                 else if (commandToRun != null)
                                 {
-                                    await ExecuteCommandAsync(message, author, channel, commandSegments.Skip(1), commandAlias, foundCommands.First(), startTime);
+                                    ExecuteCommand(message, commandSegments.Skip(1), foundCommands.First(), startTime);
                                 }
                             }
                         }
@@ -531,140 +559,98 @@ namespace WamBotRewrite
             }
         }
 
-        private static async Task ExecuteCommandAsync(SocketMessage message, SocketUser author, ISocketMessageChannel channel, IEnumerable<string> commandSegments, string commandAlias, CommandRunner command, DateTimeOffset start)
+        private static void ExecuteCommand(IMessage message, IEnumerable<string> commandSegments, CommandRunner command, DateTimeOffset start)
         {
-            try
+            if (DateTime.Now.IsAprilFools() && commandSegments.Count() == 0 && Random.NextDouble() > 0.5)
             {
-                await LogMessage(message, $"Found {command.Name} command!");
-                _processedMessageIds.Add(message.Id);
-
-                WamBotContext db = new WamBotContext();
-                if (!command.RequiresGuild || channel is IGuildChannel)
-                {
-                    if (Tools.CheckPermissions(Client, (message.Channel is IGuildChannel c ? (IUser)(await c.Guild?.GetCurrentUserAsync()) : (IUser)Client.CurrentUser), channel, command))
-                    {
-                        if (Tools.CheckPermissions(Client, author, channel, command))
-                        {
-                            await LogMessage(message, $"Running command \"{command.Name}\" asynchronously.");
-                            new Task(async () => await RunCommandAsync(message, author, channel, commandSegments, commandAlias, command, db, start)).Start();
-                        }
-                        else
-                        {
-                            await LogMessage(message, "Attempt to run command without correct user permissions.");
-                            await Tools.SendTemporaryMessage(message, channel, $"Oi! You're not allowed to run that command! Fuck off!");
-                            _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "401", false));
-                        }
-                    }
-                    else
-                    {
-                        await LogMessage(message, "Attempt to run command without correct bot permissions.");
-                        await Tools.SendTemporaryMessage(message, channel, $"Sorry! I don't have permission to run that command in this server! Contact an admin/mod for more info.");
-                        _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "403", false));
-                    }
-                }
-                else
-                {
-                    await LogMessage(message, "Attempt to run command requiring guild within non-guild channel.");
-                    await Tools.SendTemporaryMessage(message, channel, "This command requires a server to run! Sorry!");
-                    _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "403", false));
-                }
+                var c = Commands.Where(co => co._method.GetParameters().Count() == 1).ToArray();
+                command = c.ElementAt(Random.Next(c.Count()));
             }
-            catch (Exception ex)
+
+            var r = new CommandRequest(message, commandSegments.ToList(), command, start);
+
+            new Task(async () =>
             {
-                Console.WriteLine(ex);
-            }
-        }
-
-        private static async Task RunCommandAsync(SocketMessage message, SocketUser author, ISocketMessageChannel channel, IEnumerable<string> commandSegments, string commandAlias, CommandRunner command, WamBotContext db, DateTimeOffset start)
-        {
-            try
-            {
-                await channel.TriggerTypingAsync();
-
-                CommandContext context = new CommandContext(commandSegments.ToArray(), message, _client, db)
-                {
-                    Command = command,
-                    UserData = await db.Users.GetOrCreateAsync(db, (long)author.Id, () => new User(author))
-                };
-
-                if (channel is IGuildChannel gc)
-                {
-                    context.GuildData = await db.Guilds.GetOrCreateAsync(db, (long)gc.GuildId, () => new Guild(gc.Guild));
-                    context.ChannelData = await db.Channels.GetOrCreateAsync(db, (long)channel.Id, () => new Channel(gc));
-                }
-
-                string[] cmdsegarr = commandSegments.ToArray();
-                await command.Run(cmdsegarr, context);
-
-                context.Happiness += 1;
-                context.UserData.CommandsRun += 1;
-
-                RequestTelemetry request = Tools.GetRequestTelemetry(author, channel, command, start, "200", true);
-                _telemetryClient?.TrackRequest(request);
-            }
-            catch (CommandException ex)
-            {
-                Console.WriteLine(ex);
-                await channel.SendMessageAsync(ex.Message);
-                _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "400", false));
-            }
-            catch (ArgumentOutOfRangeException ex)
-            {
-                Console.WriteLine(ex);
-                await channel.SendMessageAsync("Hey there! That's gonna cause some issues, no thanks!!");
-                _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(author, channel, command, start, "400", false));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                ManageException(message, channel, ex, command);
-            }
-            finally
-            {
-                await db.SaveChangesAsync();
-                db.Dispose();
-            }
-        }
-
-        private static void ManageException(SocketMessage message, ISocketMessageChannel channel, Exception ex, CommandRunner command)
-        {
-            if (!(ex is TaskCanceledException) && !(ex is OperationCanceledException))
-            {
-                Console.WriteLine($"\n --- Something's fucked up! --- \n{ex.ToString()}\n");
-                _telemetryClient?.TrackException(ex, new Dictionary<string, string> { { "command", command.GetType().Name } });
-
-                ex = ex.InnerException ?? ex;
-
-#if UI
-                App.Current.Dispatcher.Invoke(() =>
-                {
-                    ((MainWindow)App.Current.MainWindow).recentExceptions.Items.Add(ex);
-                });
-#endif
-
-                new Task(async () =>
+                using (WamBotContext db = new WamBotContext())
                 {
                     try
                     {
-                        EmbedBuilder builder = new EmbedBuilder()
-                            .WithAuthor($"Error - WamBot {Assembly.GetEntryAssembly().GetName().Version.ToString(3)}", Application?.IconUrl)
-                            .WithDescription($"Something's gone very wrong executing that command, and an {ex.GetType().Name} occured.")
-                            .WithFooter("This message will be deleted in 10 seconds")
-                            .WithTimestamp(DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10))
-                            .WithColor(255, 0, 0);
-                        builder.AddField("Message", $"```{ex.Message.Truncate(1016)}```");
-#if DEBUG
-                        builder.AddField("Stack Trace", $"```{ex.StackTrace.Truncate(1016)}```");
-#endif
+                        await LogMessage(r.Message, $"Found {r.Command.Name} command!");
+                        _processedMessageIds.Add(r.Message.Id);
 
-                        IUserMessage msg = await channel.SendMessageAsync("", embed: builder.Build());
+                        if (!r.Command.RequiresGuild || r.Channel is IGuildChannel)
+                        {
+                            if (Tools.CheckPermissions(Client, (r.Message.Channel is IGuildChannel c ? (IUser)(await c.Guild?.GetCurrentUserAsync()) : (IUser)Client.CurrentUser), r.Channel, r.Command))
+                            {
+                                if (Tools.CheckPermissions(Client, r.Author, r.Channel, r.Command))
+                                {
+                                    await LogMessage(r.Message, $"Running command \"{r.Command.Name}\" asynchronously."); await r.Channel.TriggerTypingAsync();
 
-                        await Task.Delay(10_000);
-                        await msg.DeleteAsync();
+                                    CommandContext context = new CommandContext(r.CommandSegments.ToArray(), r.Message, _client, db)
+                                    {
+                                        Command = r.Command,
+                                        UserData = await db.Users.GetOrCreateAsync(db, (long)r.Author.Id, () => new User(r.Author))
+                                    };
+
+                                    if (r.Channel is IGuildChannel gc)
+                                    {
+                                        context.GuildData = await db.Guilds.GetOrCreateAsync(db, (long)gc.GuildId, () => new Guild(gc.Guild));
+                                        context.ChannelData = await db.Channels.GetOrCreateAsync(db, (long)r.Channel.Id, () => new Channel(gc));
+                                    }
+
+                                    string[] cmdsegarr = r.CommandSegments.ToArray();
+                                    await r.Command.Run(cmdsegarr, context);
+
+                                    context.Happiness += 1;
+                                    context.UserData.CommandsRun += 1;
+
+                                    RequestTelemetry request = Tools.GetRequestTelemetry(r.Author, r.Channel, r.Command, r.Start, "200", true);
+                                    _telemetryClient?.TrackRequest(request);
+                                }
+                                else
+                                {
+                                    await LogMessage(r.Message, "Attempt to run command without correct user permissions.");
+                                    await Tools.SendTemporaryMessage(r.Message, r.Channel, $"Oi! You're not allowed to run that command! Fuck off!");
+                                    _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(r.Author, r.Channel, r.Command, r.Start, "401", false));
+                                }
+                            }
+                            else
+                            {
+                                await LogMessage(r.Message, "Attempt to run command without correct bot permissions.");
+                                await Tools.SendTemporaryMessage(r.Message, r.Channel, $"Sorry! I don't have permission to run that command in this server! Contact an admin/mod for more info.");
+                                _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(r.Author, r.Channel, r.Command, r.Start, "403", false));
+                            }
+                        }
+                        else
+                        {
+                            await LogMessage(r.Message, "Attempt to run command requiring guild within non-guild channel.");
+                            await Tools.SendTemporaryMessage(r.Message, r.Channel, "This command requires a server to run! Sorry!");
+                            _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(r.Author, r.Channel, r.Command, r.Start, "403", false));
+                        }
                     }
-                    catch { }
-                }).Start();
-            }
+                    catch (CommandException ex)
+                    {
+                        Console.WriteLine(ex);
+                        await r.Channel.SendMessageAsync(ex.Message);
+                        _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(r.Author, r.Channel, r.Command, r.Start, "400", false));
+                    }
+                    catch (ArgumentOutOfRangeException ex)
+                    {
+                        Console.WriteLine(ex);
+                        await r.Channel.SendMessageAsync("Hey there! That's gonna cause some issues, no thanks!!");
+                        _telemetryClient?.TrackRequest(Tools.GetRequestTelemetry(r.Author, r.Channel, r.Command, r.Start, "400", false));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                        Tools.ManageException(r.Message, r.Channel, ex, r.Command);
+                    }
+                    finally
+                    {
+                        await db.SaveChangesAsync();
+                    }
+                }
+            }).Start();
         }
 
         private static async Task DiscordClient_Log(LogMessage arg)

@@ -15,7 +15,7 @@ using WamWooWam.Core;
 
 namespace WamBotRewrite
 {
-    static class ImageCommandsSupport
+    static class ImageCommandSupport
     {
         static JpegEncoder _jpgEncoder = new JpegEncoder() { Quality = 75 };
         static PngEncoder _pngEncoder = new PngEncoder() { CompressionLevel = 4 };
@@ -56,6 +56,9 @@ namespace WamBotRewrite
             {
                 emb.WithImageUrl($"attachment://{file}");
             }
+
+            if (ctx.ChannelData != null)
+                ctx.ChannelData.MessagesSent += 1;
 
             await ctx.Channel.SendFileAsync(str, file, embed: emb?.Build());
         }

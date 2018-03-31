@@ -50,7 +50,7 @@ namespace WamBotRewrite.Commands
         [Command("Ping", "What's my ping? This'll tell you.", new[] { "ping" })]
         public async Task Ping(CommandContext ctx)
         {
-            await ctx.ReplyAsync($"Hola! My ping's currently {Program.Client.Latency}ms!");
+            await ctx.ReplyAsync($"Hola! My ping's currently {ctx.Client.Latency}ms!");
         }
 
         [Command("Pet", "Pets me!", new[] { "pet" })]
@@ -117,7 +117,7 @@ namespace WamBotRewrite.Commands
                 builder.AddField("Linked Twitter", $"[@{user.ScreenName}](http://twitter.com/{user.ScreenName}) ({user.Id})", true);
             }
 
-            await ctx.Channel.SendMessageAsync("", false, builder.Build());
+            await ctx.ReplyAsync(emb: builder.Build());
         }
 
         [OwnerOnly]
@@ -244,7 +244,7 @@ namespace WamBotRewrite.Commands
                 builder.AddField("Roles", memb.RoleIds.Any() ? string.Join(", ", memb.RoleIds.Select(r => ctx.Guild.GetRole(r).Mention)) : "None");
             }
 
-            await ctx.Channel.SendMessageAsync("", false, builder.Build());
+            await ctx.ReplyAsync(emb: builder.Build());
         }
 
         [RequiresGuild]
@@ -292,7 +292,7 @@ namespace WamBotRewrite.Commands
                     builder.WithImageUrl(guild.SplashUrl);
             }
 
-            await ctx.Channel.SendMessageAsync("", false, builder.Build());
+            await ctx.ReplyAsync(emb: builder.Build());
         }
 
         [OwnerOnly]
@@ -316,7 +316,7 @@ namespace WamBotRewrite.Commands
                 builder.AddField("Method Declaring Assembly", $"`{command._method.DeclaringType.Assembly.FullName}`");
                 builder.AddField("Method Declaration", $"```cs\r\n{Tools.GetMethodDeclaration(command._method)}\r\n```");
 
-                await ctx.Channel.SendMessageAsync("", embed: builder.Build());
+                await ctx.ReplyAsync(emb: builder.Build());
             }
 
             if (!foundCommands.Any())
@@ -352,7 +352,7 @@ namespace WamBotRewrite.Commands
             builder.AddField("Available Commands", Program.Commands.Count.ToString(), true);
             //builder.AddField("Available Parse Extensions", Program.ParseExtensions.Count.ToString(), true);
 
-            await ctx.Channel.SendMessageAsync("", false, builder.Build());
+            await ctx.ReplyAsync(emb: builder.Build());
         }
 
         [Command("Credits", "All the people who've made me possible!", new[] { "credits" })]
@@ -411,7 +411,7 @@ namespace WamBotRewrite.Commands
                 var commands = Program.Commands.Where(c => c.Aliases.Contains(name.ToLowerInvariant()));
                 foreach (var command in commands)
                 {
-                    if (Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
+                    if (Tools.CheckPermissions(ctx.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
                     {
                         builder = ctx.GetEmbedBuilder(command.Name);
                         builder.AddField("Description", command.Description, true);
@@ -438,7 +438,7 @@ namespace WamBotRewrite.Commands
                             .WithDescription(category.Key.Description);
                         foreach (var command in category.OrderBy(c => c.Aliases.First()))
                         {
-                            if (Tools.CheckPermissions(Program.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
+                            if (Tools.CheckPermissions(ctx.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
                             {
                                 builder.AddField(command.Name, command.Description, true);
                             }
@@ -496,7 +496,7 @@ namespace WamBotRewrite.Commands
                 .WithFooter($"{Program.Config.MemeLines[_random.Next(Program.Config.MemeLines.Count())]} - " +
                     $"My current prefix is {Program.Config.Prefix} (duh)", Program.Application.Owner.GetAvatarUrl())
                 .WithCurrentTimestamp();
-            await ctx.Channel.SendMessageAsync("", false, builder.Build());
+            await ctx.ReplyAsync(emb: builder.Build());
         }
     }
 }
