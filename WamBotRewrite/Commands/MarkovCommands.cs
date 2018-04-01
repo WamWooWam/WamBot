@@ -61,8 +61,12 @@ namespace WamBotRewrite.Commands
                             var twitter = u.TwitterId != 0 ? TwitterUser.GetUserFromId(u.TwitterId) : null;
                             var discord = Program.Client.GetUser((ulong)u.UserId);
                             var mention = twitter != null ? $"@{twitter.ScreenName}" : $"{discord.Username}#{discord.Discriminator}";
-
-                            var output = $"\"{m.Value.Generate(Program.Random.Next(10, 30), " ", true)}\" - {mention}";
+                            string content = m.Value.Generate(Program.Random.Next(10, 30), " ", true);
+                            if (DateTime.Now.IsAprilFools())
+                            {
+                                content = content.Replace("n", "ny").Replace("r", "w");
+                            }
+                            var output = $"\"{content}\" - {mention}";
                             Tweet.PublishTweet(output);
                             tweeted = true;
                         }

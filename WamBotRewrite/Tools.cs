@@ -282,7 +282,7 @@ namespace WamBotRewrite
                     {
                         EmbedBuilder builder = new EmbedBuilder()
                             .WithAuthor($"Error - WamBot {Assembly.GetEntryAssembly().GetName().Version.ToString(3)}", Program.Application?.IconUrl)
-                            .WithDescription($"Something's gone very wrong executing that command, and an {ex.GetType().Name} occured.")
+                            .WithDescription(DateTime.Now.IsAprilFools() ? "OOPSIE WOOPSIE!! Uwu We made a fucky wucky!! A wittle fucko boingo! The code monkeys at our headquarters are working VEWY HAWD to fix this!" : $"Something's gone very wrong executing that command, and an {ex.GetType().Name} occured.")
                             .WithFooter("This message will be deleted in 10 seconds")
                             .WithTimestamp(DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10))
                             .WithColor(255, 0, 0);
