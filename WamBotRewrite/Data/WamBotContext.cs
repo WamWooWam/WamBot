@@ -34,7 +34,7 @@ namespace WamBotRewrite.Data
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder
-                .UseNpgsql("Server=localhost;Database=WamBot")
+                .UseNpgsql(Program.Config?.ConnectionString ?? "Server=localhost;Database=WamBot")
                 .UseLoggerFactory(new UILoggerFactory());
         }
     }

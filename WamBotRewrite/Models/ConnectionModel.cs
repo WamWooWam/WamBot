@@ -1,6 +1,4 @@
-﻿using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,18 +12,20 @@ using System.IO;
 using WamBotRewrite.Api;
 using System.Globalization;
 using Discord.WebSocket;
+using NAudio.Wave;
 
 namespace WamBotRewrite.Models
 {
     internal class ConnectionModel : IDisposable
     {
-        private static WaveFormat _format = new WaveFormat(48000, 2);
+        private static WaveFormat _format = new WaveFormat(48000, 16, 2);
         internal float _volume = 0.66f;
         private bool _connected;
         private string path;
+        private CommandContext _context;
+
         private WaveRecorder recorder;
         private WaveOut output;
-        private CommandContext _context;
         private ConcurrentDictionary<ulong, BufferedWaveProvider> buffers = new ConcurrentDictionary<ulong, BufferedWaveProvider>();
 
         IVoiceChannel _voiceChannel;
@@ -44,8 +44,8 @@ namespace WamBotRewrite.Models
             Songs = new ConcurrentQueue<SongModel>();
             ConnectTime = DateTime.Now;
             TokenSource = new CancellationTokenSource();
-            RecordBuffer = new BufferedWaveProvider(new WaveFormat(48000, 2)) { BufferDuration = TimeSpan.FromSeconds(1), DiscardOnBufferOverflow = true };
 
+            RecordBuffer = new BufferedWaveProvider(new WaveFormat(48000, 2)) { BufferDuration = TimeSpan.FromSeconds(1), DiscardOnBufferOverflow = true };
             AvailableStreams = new ConcurrentDictionary<ulong, AudioInStream>();
             Mixer = new MixingWaveProvider32();
         }
@@ -155,7 +155,8 @@ namespace WamBotRewrite.Models
 
         public IAudioClient Connection { get; private set; }
         public IVoiceChannel Channel => _voiceChannel;
-        public VolumeSampleProvider SampleProvider { get; set; }
+        public VolumeWaveProvider16 VolumeSource { get; set; }
+        public IWaveProvider AudioSource { get; set; }
         public BufferedWaveProvider RecordBuffer { get; set; }
         public ConcurrentQueue<SongModel> Songs { get; private set; }
         public ConcurrentDictionary<ulong, AudioInStream> AvailableStreams { get; set; }
@@ -188,12 +189,12 @@ namespace WamBotRewrite.Models
 
         public float Volume
         {
-            get => SampleProvider?.Volume ?? _volume;
+            get => VolumeSource?.Volume ?? _volume;
             set
             {
                 _volume = value;
-                if (SampleProvider != null)
-                    SampleProvider.Volume = value;
+                if (VolumeSource != null)
+                    VolumeSource.Volume = value;
             }
         }
     }

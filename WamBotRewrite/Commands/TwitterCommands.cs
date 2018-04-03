@@ -112,7 +112,7 @@ namespace WamBotRewrite.Commands
 
                 foreach (var a in ctx.Message.Attachments)
                 {
-                    parameters.MediaBinaries.Add(await _httpClient.GetByteArrayAsync(a.Url));
+                    parameters.MediaBinaries.Add(await HttpClient.GetByteArrayAsync(a.Url));
                 }
 
                 if (reply != null)

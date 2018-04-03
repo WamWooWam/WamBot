@@ -1,8 +1,6 @@
 ﻿using Discord;
 using Discord.Audio;
 using Discord.WebSocket;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Concurrent;
@@ -19,6 +17,10 @@ using WamBotRewrite.Api;
 using WamBotRewrite.Data;
 using WamBotRewrite.Models;
 using WamWooWam.Core.Windows;
+
+using NAudio;
+using NAudio.Wave;
+using SixLabors.ImageSharp;
 
 namespace WamBotRewrite.Commands
 {
@@ -280,7 +282,7 @@ namespace WamBotRewrite.Commands
                         if (!File.Exists(path) || !File.Exists(metaPath))
                         {
                             var message = await ctx.Channel.SendMessageAsync("Downloading...");
-                            DownloadAndWait(uri, name, false);
+                            DownloadAndWait(uri, name);
                             await message.DeleteAsync();
                         }
 
@@ -309,7 +311,7 @@ namespace WamBotRewrite.Commands
                             if (!File.Exists(thumbnailPath) && meta.TryGetValue("thumbnail", out var thumbToken))
                             {
                                 using (FileStream thumbStr = File.Create(thumbnailPath))
-                                using (Stream remoteStr = await _httpClient.GetStreamAsync(thumbToken.ToObject<string>()))
+                                using (Stream remoteStr = await HttpClient.GetStreamAsync(thumbToken.ToObject<string>()))
                                 {
                                     await remoteStr.CopyToAsync(thumbStr, 81920, connection.Token);
                                 }
@@ -332,7 +334,7 @@ namespace WamBotRewrite.Commands
                                 try
                                 {
                                     var message = await ctx.Channel.SendMessageAsync("Attempting to download as direct URL...");
-                                    using (Stream remoteStr = await _httpClient.GetStreamAsync(uri))
+                                    using (Stream remoteStr = await HttpClient.GetStreamAsync(uri))
                                     using (FileStream str = File.Create(path))
                                     {
                                         await remoteStr.CopyToAsync(str);
@@ -354,7 +356,7 @@ namespace WamBotRewrite.Commands
                     IUserMessage message = await ctx.Channel.SendMessageAsync($"Downloading \"{Path.GetFileName(attachment.Filename)}\"...");
 
                     string filePath = "";
-                    using (Stream remoteStr = await _httpClient.GetStreamAsync(attachment.Url))
+                    using (Stream remoteStr = await HttpClient.GetStreamAsync(attachment.Url))
                     {
                         using (MemoryStream memStr = new MemoryStream())
                         {
@@ -431,11 +433,11 @@ namespace WamBotRewrite.Commands
                                 var art = tag.Tag.Pictures.FirstOrDefault();
                                 if (art != null && !File.Exists(defaultThumb))
                                 {
-                                    using (var image = System.Drawing.Image.FromStream(new MemoryStream(art.Data.Data)))
+                                    using (var image = SixLabors.ImageSharp.Image.Load(new MemoryStream(art.Data.Data)))
                                     {
                                         using (FileStream str = File.OpenWrite(defaultThumb))
                                         {
-                                            image.Save(str, System.Drawing.Imaging.ImageFormat.Png);
+                                            image.SaveAsPng(str);
                                             model.ThumbnailPath = defaultThumb;
                                         }
                                     }
@@ -454,17 +456,7 @@ namespace WamBotRewrite.Commands
                         }
                         else
                         {
-                            try
-                            {
-                                using (var img = Thumbnails.GetThumbnail(model.FilePath))
-
-                                {
-                                    string path = defaultThumb;
-                                    img.Save(path, System.Drawing.Imaging.ImageFormat.Png);
-                                    model.ThumbnailPath = path;
-                                }
-                            }
-                            catch { }
+                            model.ThumbnailPath = Path.Combine(Directory.GetCurrentDirectory(), "Assets", "unknown.png");
                         }
                     }
 
@@ -496,20 +488,22 @@ namespace WamBotRewrite.Commands
         [Command("Record", "Records the current goings on within a voice channel.", new[] { "rec", "record" })]
         public async Task Record(CommandContext ctx)
         {
-            ConnectionModel connection;
-            if ((connection = await GetConnectionModelAsync(ctx)) != null)
-            {
-                if (connection.Recording)
-                {
-                    var message = await ctx.Channel.SendMessageAsync("Processing your ~~clusterfuck~~ recording...");
-                    connection.Recording = false;
-                }
-                else
-                {
-                    await ctx.ReplyAsync("Now recording...");
-                    await connection.StartRecordingAsync();
-                }
-            }
+            await ctx.ReplyAsync("Sorry! This command is currently unavailable.");
+
+            //ConnectionModel connection;
+            //if ((connection = await GetConnectionModelAsync(ctx)) != null)
+            //{
+            //    if (connection.Recording)
+            //    {
+            //        var message = await ctx.Channel.SendMessageAsync("Processing your ~~clusterfuck~~ recording...");
+            //        connection.Recording = false;
+            //    }
+            //    else
+            //    {
+            //        await ctx.ReplyAsync("Now recording...");
+            //        await connection.StartRecordingAsync();
+            //    }
+            //}
         }
 
         #region Tools
@@ -519,77 +513,77 @@ namespace WamBotRewrite.Commands
             {
                 AudioStream stream = connection.Connection.CreatePCMStream(AudioApplication.Music);
 
-                while (connection.Connected)
+                using (MemoryStream memStr = new MemoryStream())
                 {
-                    if (connection.Songs.TryDequeue(out SongModel model))
+
+                    while (connection.Connected)
                     {
-                        await channel.SendMessageAsync($"Now Playing: **{model}**");
-
-                        try
+                        if (connection.Songs.TryDequeue(out SongModel model))
                         {
-                            using (MediaFoundationReader reader = new MediaFoundationReader(model.FilePath))
-                            using (MediaFoundationResampler resampler = new MediaFoundationResampler(reader, 48000))
+                            var message = await channel.SendMessageAsync($"Getting ready to play **{model}**...");
+
+                            try
                             {
-                                VolumeSampleProvider volume = new VolumeSampleProvider(resampler.ToSampleProvider()) { Volume = connection.Volume };
-                                connection.SampleProvider = volume;
-                                IWaveProvider waveProvider = connection.SampleProvider.ToWaveProvider16();
-
-                                if (reader.WaveFormat.Channels == 1)
+                                using (RawSourceWaveStream reader = GetAudioStream(connection, model.FilePath, memStr))
                                 {
-                                    waveProvider = new MonoToStereoProvider16(waveProvider);
-                                }
+                                    await message.ModifyAsync(m => m.Content = $"Playing: **{model}**");
 
-                                connection.Total = reader.TotalTime;
-                                connection.NowPlaying = model;
+                                    VolumeWaveProvider16 volume = new VolumeWaveProvider16(reader) { Volume = connection.Volume };
+                                    connection.VolumeSource = volume;
 
-                                byte[] buff = new byte[3840];
-                                int br = 0;
+                                    var waveProvider = volume;
 
-                                await connection.Connection.SetSpeakingAsync(true);
+                                    connection.Total = TimeSpan.FromSeconds(reader.Length / (reader.WaveFormat.SampleRate * (reader.WaveFormat.BitsPerSample / 16)));
+                                    connection.NowPlaying = model;
 
-                                while ((br = waveProvider.Read(buff, 0, buff.Length)) > 0)
-                                {
-                                    connection.Token.ThrowIfCancellationRequested();
+                                    byte[] buff = new byte[3840];
+                                    int br = 0;
 
-                                    if (connection.Skip)
+                                    await connection.Connection.SetSpeakingAsync(true);
+
+                                    while ((br = waveProvider.Read(buff, 0, buff.Length)) > 0)
                                     {
-                                        break;
-                                    }
+                                        connection.Token.ThrowIfCancellationRequested();
 
-                                    if (br < buff.Length)
-                                    {
-                                        for (int i = br; i < buff.Length; i++)
+                                        if (connection.Skip)
                                         {
-                                            buff[i] = 0;
+                                            break;
                                         }
+
+                                        if (br < buff.Length)
+                                        {
+                                            for (int i = br; i < buff.Length; i++)
+                                            {
+                                                buff[i] = 0;
+                                            }
+                                        }
+
+                                        connection.Elapsed = TimeSpan.FromMilliseconds(reader.Position);
+
+                                        await stream.WriteAsync(buff, 0, 3840, connection.Token);
+                                        //connection.RecordBuffer.AddSamples(buff, 0, buff.Length);
                                     }
 
-                                    connection.Elapsed = reader.CurrentTime;
+                                    if (connection.Connected)
+                                    {
+                                        await connection.Connection.SetSpeakingAsync(false);
+                                    }
 
-                                    await stream.WriteAsync(buff, 0, 3840, connection.Token);
-                                    connection.RecordBuffer.AddSamples(buff, 0, buff.Length);
+                                    connection.Skip = false;
                                 }
-
-                                if (connection.Connected)
-                                {
-                                    await connection.Connection.SetSpeakingAsync(false);
-                                }
-
-                                connection.Skip = false;
+                            }
+                            catch (OperationCanceledException) { break; }
+                            catch (InvalidOperationException) { break; }
+                            catch (Exception ex)
+                            {
+                                await channel.SendMessageAsync($"Something went a bit wrong attempting to play that and a {ex.GetType().Name} was thrown. Sorry!\r\n{ex.Message}");
                             }
                         }
-                        catch (OperationCanceledException) { break; }
-                        catch (InvalidOperationException) { break; }
-                        catch (Exception ex)
-                        {
-                            await channel.SendMessageAsync($"Something went a bit wrong attempting to play that and a {ex.GetType().Name} was thrown. Sorry!\r\n{ex.Message}");
-                        }
+                        connection.NowPlaying = null;
+                        connection.Skip = false;
+
+                        await Task.Delay(500);
                     }
-
-                    connection.NowPlaying = null;
-                    connection.Skip = false;
-
-                    await Task.Delay(500);
                 }
             }
             catch
@@ -601,19 +595,50 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        private static void DownloadAndWait(Uri uri, string id, bool native)
+        private static RawSourceWaveStream GetAudioStream(ConnectionModel c, string file, MemoryStream str)
         {
-            ProcessStartInfo info = new ProcessStartInfo("cmd", $"/c \"{Path.Combine(Directory.GetCurrentDirectory(), "youtube-dl.exe")} " +
-                $"-v {(native ? "" : "--write-info-json")} {(File.Exists(Path.Combine(Path.GetTempPath(), id + ".aac")) ? "--skip-download" : "")} -f m4a/aac/bestaudio/worst --hls-prefer-ffmpeg -4 --extract-audio --audio-format m4a --audio-quality 128K {uri} -o {Path.Combine(Path.GetTempPath(), id + ".%(ext)s")}\"")
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
             {
-                WindowStyle = ProcessWindowStyle.Normal,
-                CreateNoWindow = false,
-                WorkingDirectory = Directory.GetCurrentDirectory(),
-                UseShellExecute = true
-            };
+                using (MediaFoundationReader reader = new MediaFoundationReader(file))
+                using (MediaFoundationResampler resampler = new MediaFoundationResampler(reader, 48000))
+                {
+                    var final = resampler.WaveFormat.Channels == 1 ? (IWaveProvider)new Wave16ToFloatProvider(resampler) : resampler;
+                    str.SetLength(0);
 
-            Process process = new Process { StartInfo = info };
-            process.Start();
+                    int br = 0;
+                    byte[] buff = new byte[3840];
+                    while ((br = final.Read(buff, 0, buff.Length)) > 0)
+                    {
+                        str.Write(buff, 0, br);
+                    }
+
+                    str.Seek(0, SeekOrigin.Begin);
+                    return new RawSourceWaveStream(str, final.WaveFormat);
+                }
+            }
+            else
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "ffmpeg",
+                    Arguments = $@"-i ""{file}"" -ac 2 -f s16le -ar 48000 pipe:1",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false
+                };
+                using (var ffmpeg = Process.Start(psi))
+                {
+                    str.SetLength(0);
+                    ffmpeg.StandardOutput.BaseStream.CopyTo(str);
+                    str.Seek(0, SeekOrigin.Begin);
+                }
+
+                return new RawSourceWaveStream(str, new WaveFormat(48000, 2));
+            }
+        }
+
+        private static void DownloadAndWait(Uri uri, string id)
+        {
+            Process process = Process.Start("youtube-dl", $"-v --write-info-json {(File.Exists(Path.Combine(Path.GetTempPath(), id + ".aac")) ? "--skip-download" : "")} -f m4a/aac/bestaudio/worst --hls-prefer-ffmpeg -4 --extract-audio --audio-format m4a --audio-quality 128K {uri} -o {Path.Combine(Path.GetTempPath(), id + ".%(ext)s")} --newline");
             process.WaitForExit();
         }
 

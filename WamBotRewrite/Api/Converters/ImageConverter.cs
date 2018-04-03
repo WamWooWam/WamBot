@@ -1,5 +1,6 @@
 ﻿using Discord;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,13 +13,6 @@ namespace WamBotRewrite.Api.Converters
 {
     class ImageConverter : IParamConverter
     {
-        static HttpClient _client;
-
-        public ImageConverter()
-        {
-            _client = new HttpClient();
-        }
-
         public Type[] AcceptedTypes => new[] { typeof(Image<Rgba32>) };
 
         public async Task<object> Convert(string arg, Type to, CommandContext context)
@@ -68,7 +62,7 @@ namespace WamBotRewrite.Api.Converters
                 }
             }
 
-            finishedImage = SixLabors.ImageSharp.Image.Load<Rgba32>(await _client.GetStreamAsync(url));
+            finishedImage = SixLabors.ImageSharp.Image.Load<Rgba32>(await CommandCategory.HttpClient.GetStreamAsync(url));
             return finishedImage;
         }
     }

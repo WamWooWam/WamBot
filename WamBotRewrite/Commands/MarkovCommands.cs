@@ -44,6 +44,7 @@ namespace WamBotRewrite.Commands
                 }
             }
 
+#if RELEASE
             var tweetTimer = Tools.CreateTimer(TimeSpan.FromMinutes(60), async (o, e) =>
             {
                 using (WamBotContext ctx = new WamBotContext())
@@ -77,7 +78,7 @@ namespace WamBotRewrite.Commands
                     }
                 }
             });
-
+#endif
             AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
             Program.Client.MessageReceived += Markov_MessageRecieved;
         }

@@ -23,6 +23,8 @@ namespace WamBotRewrite.Data
 
         public string Token { get; set; }
 
+        public string ConnectionString { get; set; }
+
         public Guid ApplicationInsightsKey { get; set; }
 
         public TwitterCredentials TwitterCredentials { get; set; }

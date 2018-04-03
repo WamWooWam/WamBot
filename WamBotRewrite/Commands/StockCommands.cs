@@ -20,7 +20,6 @@ namespace WamBotRewrite.Commands
     sealed class StockCommands : CommandCategory
     {
         private static Random _random = new Random();
-        static HttpClient _client = new HttpClient();
         private static DateTime? _startupTime = null;
 
         public StockCommands()
@@ -188,7 +187,7 @@ namespace WamBotRewrite.Commands
         {
             try
             {
-                string str = await _client.GetStringAsync("http://pebble-pickup.herokuapp.com/tweets/random");
+                string str = await HttpClient.GetStringAsync("http://pebble-pickup.herokuapp.com/tweets/random");
                 JObject obj = JObject.Parse(str);
                 JToken tweet = obj["tweet"];
                 await ctx.ReplyAsync($"\"{tweet.ToObject<string>()}\"");
@@ -332,19 +331,19 @@ namespace WamBotRewrite.Commands
             AssemblyName mainAssembly = Assembly.GetExecutingAssembly().GetName();
 
             EmbedBuilder builder = ctx.GetEmbedBuilder("Statistics");
-            builder.AddField("Operating System", RuntimeInformation.OSDescription, true);
-            builder.AddField("RAM Usage (Current)", Files.SizeSuffix(process.PrivateMemorySize64), true);
+            builder.AddField("Operating System", RuntimeInformation.OSDescription, false);
+            builder.AddField("RAM Usage (GC)", Files.SizeSuffix(GC.GetTotalMemory(false)), true);
+            builder.AddField("RAM Usage (Current)", Files.SizeSuffix(process.WorkingSet64), true);
             builder.AddField("RAM Usage (Peak)", Files.SizeSuffix(process.PeakWorkingSet64), true);
 
             builder.AddField("Ping", $"{ctx.Client.Latency}ms", true);
             builder.AddField("Version", $"{mainAssembly.Version}", true);
             builder.AddField("Compiled at", new DateTime(2000, 1, 1).AddDays(mainAssembly.Version.Build).AddSeconds(mainAssembly.Version.MinorRevision * 2).ToString(CultureInfo.CurrentCulture), true);
 
+            builder.AddField("Accent Colour", $"#{Program.AccentColour.RawValue.ToString("X2")}", false);
+
             builder.AddField("Guilds", ctx.Client.Guilds.Count.ToString(), true);
-            builder.AddField("Total Channels", ctx.Client.PrivateChannels
-                .Cast<IChannel>()
-                .Union(ctx.Client.Guilds.SelectMany(g => g.Channels))
-                .Count().ToString(), true);
+            builder.AddField("Total Channels", (ctx.Client.PrivateChannels.Count + ctx.Client.Guilds.SelectMany(g => g.Channels).Count()).ToString(), true);
 
             builder.AddField("Total Roles", ctx.Client.Guilds.SelectMany(g => g.Roles).Count().ToString(), true);
             builder.AddField("Total Emotes", ctx.Client.Guilds.SelectMany(g => g.Emotes).Count().ToString(), true);

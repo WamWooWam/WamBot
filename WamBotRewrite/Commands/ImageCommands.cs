@@ -11,7 +11,6 @@ using System.ComponentModel.DataAnnotations;
 using SixLabors.Shapes;
 using SixLabors.Primitives;
 using SixLabors.Fonts;
-using SixLabors.ImageSharp.Drawing;
 using Discord;
 using System.Reflection;
 
@@ -19,6 +18,15 @@ using Path = System.IO.Path;
 using File = System.IO.File;
 using Image = SixLabors.ImageSharp.Image;
 using System.IO;
+
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Convolution;
+using SixLabors.ImageSharp.Processing.Filters;
+using SixLabors.ImageSharp.Processing.Effects;
+using SixLabors.ImageSharp.Processing.Transforms;
+using SixLabors.ImageSharp.Processing.Drawing;
+using SixLabors.ImageSharp.Processing.Text;
 
 namespace WamBotRewrite.Commands
 {
@@ -83,7 +91,7 @@ namespace WamBotRewrite.Commands
         public async Task Polygon(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(0, 8192)] float x, [Range(0, 8192)] float y, [Range(1, int.MaxValue)] int vertecies, [Range(1, 8192)] float radius, Rgba32? colour = null)
         {
             colour = colour ?? new Rgba32(0, 0, 0);
-            RegularPolygon poly = new RegularPolygon(new SixLabors.Primitives.PointF(x + radius, y + radius), vertecies, radius);
+            RegularPolygon poly = new RegularPolygon(new PointF(x + radius, y + radius), vertecies, radius);
             image.Mutate(i => i.Fill(colour.Value, poly));
             await ctx.ReplyAsync(image);
         }
@@ -115,7 +123,7 @@ namespace WamBotRewrite.Commands
                 AntialiasSubpixelDepth = 4
             };
 
-            image.Mutate(m => m.DrawText(text, font, color.Value, new PointF(x.Value, y.Value), options));
+            image.Mutate(m => m.DrawText(options, text, font, color.Value, new PointF(x.Value, y.Value)));
 
             await ctx.ReplyAsync(image);
         }
@@ -172,7 +180,7 @@ namespace WamBotRewrite.Commands
         [Command("Saturation", "Adjusts the saturation of an image.", new[] { "sat", "saturation" })]
         public async Task Saturation(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(1, 256)] int sat = 5)
         {
-            image.Mutate(m => m.Saturation(sat));
+            image.Mutate(m => m.Saturate(sat));
             await ctx.ReplyAsync(image);
         }
 
@@ -186,7 +194,7 @@ namespace WamBotRewrite.Commands
         [Command("Opacity", "Adjusts an image's overall opacity.", new[] { "opacity", "alpha" })]
         public async Task Opacity(CommandContext ctx, [Implicit] Image<Rgba32> image, [Range(0, 1)] float opacity)
         {
-            image.Mutate(i => i.Alpha(opacity));
+            image.Mutate(i => i.Opacity(opacity));
             await ctx.ReplyAsync(image);
         }
 
@@ -289,16 +297,16 @@ namespace WamBotRewrite.Commands
                         .Fill(colour)
                         .DrawLines(Rgba32.Black, 2, new PointF[] { new PointF(0, 0), new PointF(0, textImage.Height) })
                         .DrawLines(Rgba32.Black, 2, new PointF[] { new PointF(textImage.Width, 0), new PointF(textImage.Width, textImage.Height) })
-                        .DrawText(txt, font, Rgba32.Black, new PointF(10, 0), new TextGraphicsOptions() { WrapTextWidth = clippyTop.Width - 20 }));
+                        .DrawText(new TextGraphicsOptions() { WrapTextWidth = clippyTop.Width - 20 }, txt, font, Rgba32.Black, new PointF(10, 0)));
 
                     Image<Rgba32> returnImage = new Image<Rgba32>(clippyTop.Width, clippyTop.Height + textImage.Height + clippyBottom.Height + baseImage.Height);
 
                     returnImage.Mutate(m => m
                         .Fill(Rgba32.Transparent)
-                        .DrawImage(clippyTop, 1, new Size(clippyTop.Width, clippyTop.Height), new Point(0, 0))
-                        .DrawImage(textImage, 1, new Size(textImage.Width, textImage.Height), new Point(0, clippyTop.Height))
-                        .DrawImage(clippyBottom, 1, new Size(clippyBottom.Width, clippyBottom.Height), new Point(0, clippyTop.Height + textImage.Height))
-                        .DrawImage(baseImage, 1, new Size(baseImage.Width, baseImage.Height), new Point((clippyTop.Width - baseImage.Width) / 2, clippyTop.Height + textImage.Height + clippyBottom.Height)));
+                        .DrawImage(clippyTop, 1, new Point(0, 0))
+                        .DrawImage(textImage, 1, new Point(0, clippyTop.Height))
+                        .DrawImage(clippyBottom, 1, new Point(0, clippyTop.Height + textImage.Height))
+                        .DrawImage(baseImage, 1, new Point((clippyTop.Width - baseImage.Width) / 2, clippyTop.Height + textImage.Height + clippyBottom.Height)));
 
                     await ctx.ReplyAsync(returnImage);
                 }

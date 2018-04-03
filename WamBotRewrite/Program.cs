@@ -27,6 +27,12 @@ using WamBotRewrite.UI;
 #endif
 using WamWooWam.Core;
 
+using Image = SixLabors.ImageSharp.Image;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Transforms;
+using SixLabors.ImageSharp.PixelFormats;
+
 namespace WamBotRewrite
 {
     class Program
@@ -43,6 +49,7 @@ namespace WamBotRewrite
         internal static Config Config => _config;
         internal static Random Random => _random;
         internal static TelemetryClient TelemetryClient => _telemetryClient;
+        internal static Color AccentColour { get; private set; }
 
         static List<ulong> _processedMessageIds = new List<ulong>();
         static DiscordSocketClient _client;
@@ -51,7 +58,6 @@ namespace WamBotRewrite
         static Config _config;
         static Random _random = new Random();
 
-        internal static ConcurrentQueue<CommandRequest> Requests { get; private set; } = new ConcurrentQueue<CommandRequest>();
 
 #pragma warning disable CS4014 // Sometimes this is intended behaviour
 
@@ -333,7 +339,6 @@ namespace WamBotRewrite
 
             await LogMessage("STARTUP", $"{Commands.Count} commands and {ParamConverters.Count} converters ready and waiting!");
 
-
             using (WamBotContext ctx = new WamBotContext())
             {
                 await ctx.Database.MigrateAsync();
@@ -356,6 +361,21 @@ namespace WamBotRewrite
         private static async Task _client_Ready()
         {
             await SetStatusAsync();
+
+            await LogMessage("STARTUP", "Configuring accent colour...");
+
+            using (var str = await CommandCategory.HttpClient.GetStreamAsync(_client.CurrentUser.GetAvatarUrl()))
+            using (var img = Image.Load(str))
+            {
+                Rgba32[] buffer = new Rgba32[1];
+                img.Mutate(m => m.Resize(1, 1));
+                img.SavePixelData(buffer);
+
+                Rgba32 col = buffer[0];
+                AccentColour = new Color(col.R, col.G, col.B);
+            }
+
+            await LogMessage("STARTUP", $"Accent colour set to #{AccentColour.RawValue.ToString("X2")}");
 
             var statusUpdateTimer = Tools.CreateTimer(TimeSpan.FromMinutes(15), async (s, e) =>
             {
@@ -661,7 +681,7 @@ namespace WamBotRewrite
                 ((MainWindow)App.Current.MainWindow).discordLog.AppendText(arg.ToString() + "\r\n");
             });
 #else
-            Console.WriteLine(arg);
+            await LogMessage(arg.Source.ToUpper(), arg.Message);
 #endif
         }
     }

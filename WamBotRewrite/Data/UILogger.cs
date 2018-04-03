@@ -42,8 +42,6 @@ namespace WamBotRewrite.Data
             {
                 ((MainWindow)App.Current.MainWindow).databaseLog.AppendText(formatter(state, exception) + "\r\n");
             });
-#else
-            Console.WriteLine(formatter(state, exception));
 #endif
         }
     }

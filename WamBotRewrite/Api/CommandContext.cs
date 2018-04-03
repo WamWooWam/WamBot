@@ -86,7 +86,7 @@ namespace WamBotRewrite.Api
             var asm = Assembly.GetExecutingAssembly().GetName();
             EmbedBuilder embedBuilder = new EmbedBuilder()
             .WithAuthor($"{(title != null ? $"{title} - " : "")}WamBot {asm.Version.ToString(3)}", Program.Application.IconUrl)
-            .WithColor(Message.Author is IGuildUser m ? Tools.GetUserColor(m) : new Color(0, 137, 255));
+            .WithColor(Program.AccentColour);
 
             return embedBuilder;
         }
