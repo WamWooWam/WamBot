@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
 using WamBotRewrite.Api;
+using WamBotRewrite.Data;
 using WamWooWam.Core;
 
 namespace WamBotRewrite
@@ -161,6 +162,67 @@ namespace WamBotRewrite
         internal static bool IsCurrent(this IUser user) =>
             user.Id == Program.Client.CurrentUser.Id;
 
+        internal static async Task SendChunkedMessageAsync(this IMessageChannel channel, string content, bool tts, Channel data = null)
+        {
+            List<string> chunks = new List<string>();
+            var lines = content.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).ToArray();
+
+            foreach (string line in lines)
+            {
+                if (line.Length < 1993)
+                {
+                    chunks.Add(line + Environment.NewLine);
+                }
+                else
+                {
+                    chunks.AddRange(line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w + " "));
+                }
+            }
+
+            bool finished = false;
+            int i = 0;
+            while (!finished)
+            {
+                int l = 0;
+                StringBuilder builder = new StringBuilder();
+                if (content.Trim().StartsWith("```"))
+                {
+                    builder.Append("```");
+                    l += 3;
+                }
+
+                for (; i < chunks.Count; i++)
+                {
+                    string str = chunks.ElementAt(i);
+                    if (l + str.Length < 1996)
+                    {
+                        l += str.Length;
+                        builder.Append(str);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (content.Trim().EndsWith("```"))
+                {
+                    builder.Append("```");
+                    l += 3;
+                }
+
+                if (!(i < chunks.Count))
+                {
+                    finished = true;
+                }
+
+                if (data != null)
+                    data.MessagesSent += 1;
+
+                await channel.SendMessageAsync(builder.ToString(), tts);
+                await Task.Delay(2000);
+            }
+        }
 
         internal static string ProtectedReadLine()
         {
@@ -264,7 +326,6 @@ namespace WamBotRewrite
         {
             if (!(ex is TaskCanceledException) && !(ex is OperationCanceledException))
             {
-                Console.WriteLine($"\n --- Something's fucked up! --- \n{ex.ToString()}\n");
                 Program.TelemetryClient?.TrackException(ex, new Dictionary<string, string> { { "command", command.GetType().Name } });
 
                 ex = ex.InnerException ?? ex;

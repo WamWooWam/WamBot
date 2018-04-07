@@ -262,7 +262,7 @@ namespace WamBotRewrite.Commands
         {
             lock (markovContext)
             {
-                if (!string.IsNullOrWhiteSpace(arg.Content) && !arg.Author.IsCurrent())
+                if (!string.IsNullOrWhiteSpace(arg.Content) && !arg.Author.IsCurrent() && !arg.Content.ToLowerInvariant().Trim().StartsWith(Program.Config.Prefix))
                 {
                     var strings = arg.Content
                         .Split(c => char.IsSeparator(c) || char.IsWhiteSpace(c))

@@ -27,6 +27,7 @@ using SixLabors.ImageSharp.Processing.Effects;
 using SixLabors.ImageSharp.Processing.Transforms;
 using SixLabors.ImageSharp.Processing.Drawing;
 using SixLabors.ImageSharp.Processing.Text;
+using System.Diagnostics;
 
 namespace WamBotRewrite.Commands
 {
@@ -41,17 +42,51 @@ namespace WamBotRewrite.Commands
         static Font font;
         static string[] characters = new[] { "dot", "hoverbot", "nature", "office", "powerpup", "scribble", "wizard" };
 
+        internal static IReadOnlyFontCollection Fonts { get; set; }
+
         public ImageCommands()
         {
             try
             {
-                clippyTop = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", "clippytop.png"));
-                clippyBottom = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", "clippybottom.png"));
-                font = SystemFonts.Find("Comic Sans MS").CreateFont(14);
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    // work around for linux fonts, really fuckin slow.
+
+                    Task.Run(async () =>
+                    {
+                        Stopwatch watch = Stopwatch.StartNew();
+                        var f = new FontCollection();
+                        foreach (var font in Directory.GetFiles(Path.Combine(Environment.GetEnvironmentVariable("HOME"), ".fonts"), "*.ttf"))
+                        {
+                            await Program.LogMessage("IMAGE", $"Loading font from \"{font}\"...");
+                            f.Install(font);
+                        }
+
+                        Fonts = f;
+                        await Program.LogMessage("IMAGE", $"Loaded fonts in {watch.Elapsed}");
+
+                        PrepareClippy();
+                        watch.Reset();
+                    });
+                }
+                else
+                {
+                    Fonts = SystemFonts.Collection;
+                    PrepareClippy();
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                Program.LogMessage("IMAGE", "Failed to load assets for clippy.").GetAwaiter().GetResult();
+                Program.LogMessage("IMAGE", ex.ToString()).GetAwaiter().GetResult();
             }
+        }
+
+        private static void PrepareClippy()
+        {
+            clippyTop = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", "clippytop.png"));
+            clippyBottom = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", "clippybottom.png"));
+            font = Fonts.Find("Comic Sans MS").CreateFont(14);
         }
 
         public override string Name => "Image";
@@ -108,7 +143,7 @@ namespace WamBotRewrite.Commands
         public async Task Text(CommandContext ctx, [Implicit]Image<Rgba32> image, string text, Rgba32? color = null, float fontSize = 14, FontFamily family = null, float? x = null, float? y = null)
         {
             color = color ?? new Rgba32(0, 0, 0);
-            family = family ?? SystemFonts.Find("Segoe UI");
+            family = family ?? Fonts.Find("Segoe UI");
             Font font = family.CreateFont(fontSize, FontStyle.Regular);
             SizeF bounds = TextMeasurer.Measure(text, new RendererOptions(font) { ApplyKerning = true, WrappingWidth = image.Width - 20 });
 

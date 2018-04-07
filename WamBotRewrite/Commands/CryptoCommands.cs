@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using WamBotRewrite.Api;
+using Sodium;
 
 namespace WamBotRewrite.Commands
 {
@@ -24,6 +25,11 @@ namespace WamBotRewrite.Commands
         private static Lazy<SHA256> _sha256 = new Lazy<SHA256>(() => SHA256.Create());
         private static Lazy<SHA384> _sha384 = new Lazy<SHA384>(() => SHA384.Create());
         private static Lazy<SHA512> _sha512 = new Lazy<SHA512>(() => SHA512.Create());
+
+        public CryptoCommands()
+        {
+            SodiumCore.Init();
+        }
 
         public override string Name => "Crypto";
 
@@ -169,15 +175,29 @@ namespace WamBotRewrite.Commands
 
                 builder.AddField("Input String", $"```{str}```");
                 var stopwatch = Stopwatch.StartNew();
-                TimeSpan timeSpan;
 
-                for (int i = 0; i < repetitions; i++)
+                if (algorithm is SHA256)
                 {
-                    b = algorithm.ComputeHash(b);
-                    if (repetitions > 2_000_000 && (i % 2_000_000) == 0)
+                    for (int i = 0; i < repetitions; i++)
                     {
-                        timeSpan = TimeSpan.FromTicks((stopwatch.Elapsed.Ticks / (i + 1)) * (repetitions - i));
-                        await message.ModifyAsync(p => p.Content = $"Processing... ({timeSpan:hh\\:mm\\:ss} remaining)");
+                        b = CryptoHash.Sha256(b);
+                        await ManageRepetitions(repetitions, message, stopwatch, i);
+                    }
+                }
+                else if (algorithm is SHA512)
+                {
+                    for (int i = 0; i < repetitions; i++)
+                    {
+                        b = CryptoHash.Sha512(b);
+                        await ManageRepetitions(repetitions, message, stopwatch, i);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < repetitions; i++)
+                    {
+                        b = algorithm.ComputeHash(b);
+                        await ManageRepetitions(repetitions, message, stopwatch, i);
                     }
                 }
 
@@ -193,6 +213,16 @@ namespace WamBotRewrite.Commands
             else
             {
                 await ctx.ReplyAsync(re);
+            }
+        }
+
+        static TimeSpan timeSpan;
+        private static async Task ManageRepetitions(int repetitions, IUserMessage message, Stopwatch stopwatch, int i)
+        {
+            if (repetitions > 2_000_000 && (i % 2_000_000) == 0)
+            {
+                timeSpan = TimeSpan.FromTicks((stopwatch.Elapsed.Ticks / (i + 1)) * (repetitions - i));
+                await message.ModifyAsync(p => p.Content = $"Processing... ({timeSpan:hh\\:mm\\:ss} remaining)");
             }
         }
     }

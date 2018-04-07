@@ -139,7 +139,7 @@ namespace WamBotRewrite.Commands
                 }
                 else
                 {
-                    await ctx.EnsureBallanceAsync(20 + (ctx.Message.Attachments.Count * 5));
+                    await ctx.EnsureBallanceAsync(20 + (ctx.Message.Attachments.Count * 5), "Tweet");
                     tweet = await Tweet.PublishTweet(message, parameters);
                 }
 
@@ -186,7 +186,7 @@ namespace WamBotRewrite.Commands
                     {
                         if (!t.Retweeted)
                         {
-                            await ctx.EnsureBallanceAsync(10);
+                            await ctx.EnsureBallanceAsync(10, "Retweet");
 
                             var rt = await Tweet.PublishRetweet(t);
                             await ctx.ReplyAsync($"Here's your retweet!\nhttps://twitter.com/{t.CreatedBy.ScreenName}/status/{t.Id}");

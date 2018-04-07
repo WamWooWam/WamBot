@@ -19,6 +19,8 @@ namespace WamBotRewrite.Models
 
         public string FilePath { get; set; }
 
+        public List<string> AdditionalTracks { get; set; } = new List<string>();
+
         public string ThumbnailPath { get; set; }
 
         public TimeSpan? Duration { get; set; }
@@ -32,8 +34,8 @@ namespace WamBotRewrite.Models
             string albumArtist = !string.IsNullOrWhiteSpace(Album) && !string.IsNullOrWhiteSpace(Artist) ? $"{Album} - {Artist}" :
                                         !string.IsNullOrWhiteSpace(Artist) ? Artist :
                                         !string.IsNullOrWhiteSpace(Album) ? Album : null;
-
-            return $"{Title}{(!string.IsNullOrWhiteSpace(albumArtist) ? $" - {albumArtist}" : "")}";
+            string ret = $"{Title}{(!string.IsNullOrWhiteSpace(albumArtist) ? $" - {albumArtist}" : "")}";
+            return !string.IsNullOrWhiteSpace(ret) ? ret : "Whoopsy! No metadata here.";
         }
     }
 }

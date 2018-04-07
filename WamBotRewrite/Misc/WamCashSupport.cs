@@ -4,12 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using WamBotRewrite.Api;
+using WamBotRewrite.Data;
 
 namespace WamBotRewrite
 {
     internal static class WamCashSupport
     {
-        public static async Task EnsureBallanceAsync(this CommandContext ctx, decimal cost)
+        public static async Task EnsureBallanceAsync(this CommandContext ctx, decimal cost, string reason)
         {
             if ((ctx.UserData.Balance - cost) > -50)
             {
@@ -21,6 +22,8 @@ namespace WamBotRewrite
                         if (msg.Content.ToLowerInvariant() == "y")
                         {
                             ctx.UserData.Balance -= cost;
+                            ctx.DbContext.BotUser.Value.Balance += cost;
+                            ctx.DbContext.Transactions.Add(new Transaction(ctx.UserData, ctx.DbContext.BotUser.Value, cost, reason));
                         }
                         else
                         {
@@ -30,6 +33,8 @@ namespace WamBotRewrite
                     else
                     {
                         ctx.UserData.Balance -= cost;
+                        ctx.DbContext.BotUser.Value.Balance += cost;
+                        ctx.DbContext.Transactions.Add(new Transaction(ctx.UserData, ctx.DbContext.BotUser.Value, cost, reason));
                     }
                 }
                 catch

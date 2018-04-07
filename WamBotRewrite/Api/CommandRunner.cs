@@ -57,6 +57,7 @@ namespace WamBotRewrite.Api
         private bool _ownerOnly;
         private bool _ignoreArguments;
         private bool _requiresGuild;
+        private bool _isNsfw;
 
         public CommandRunner(MethodInfo method, CommandCategory category)
         {
@@ -77,6 +78,7 @@ namespace WamBotRewrite.Api
             _ownerOnly = attributes.Any(a => a is OwnerOnlyAttribute);
             _ignoreArguments = attributes.Any(a => a is IgnoreArgumentsAttribute);
             _requiresGuild = attributes.Any(a => a is RequiresGuildAttribute);
+            _isNsfw = attributes.Any(a => a is NsfwAttribute);
         }
 
         public string Name => _commandAttribute.Name;
@@ -87,6 +89,7 @@ namespace WamBotRewrite.Api
         public GuildPermission UserPermissions => _permissionsAttribute?.UserPermissions ?? GuildPermission.SendMessages;
         public bool OwnerOnly => _ownerOnly;
         public bool RequiresGuild => _requiresGuild;
+        public bool IsNsfw => _isNsfw;
 
         public CommandCategory Category { get; private set; }
 
@@ -115,15 +118,15 @@ namespace WamBotRewrite.Api
             {
                 Guid pipeGuid = Guid.NewGuid();
                 PipeContext context = new PipeContext(ctx);
-                using (NamedPipeServerStream pipeStream = new NamedPipeServerStream(pipeGuid.ToString(), PipeDirection.InOut, 1, PipeTransmissionMode.Message, PipeOptions.Asynchronous))
+                using (NamedPipeServerStream pipeStream = new NamedPipeServerStream(pipeGuid.ToString(), PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous))
                 {
                     Process process = new Process
                     {
-                        StartInfo = new ProcessStartInfo(Assembly.GetEntryAssembly().Location)
+                        StartInfo = new ProcessStartInfo("dotnet")
                         {
                             WorkingDirectory = Directory.GetCurrentDirectory(),
                             UseShellExecute = false,
-                            Arguments = $@"--type=command --m={_method.Name} --t={_method.DeclaringType.FullName} --p={pipeGuid} --r={_outOfProcessAttribute.RequiresDiscord}"
+                            Arguments = $@"{Assembly.GetEntryAssembly().Location} --type=command --m={_method.Name} --t={_method.DeclaringType.FullName} --p={pipeGuid} --r={_outOfProcessAttribute.RequiresDiscord}"
                         }
                     };
 
@@ -151,26 +154,25 @@ namespace WamBotRewrite.Api
             }
             else
             {
-                List<object> parameters = new List<object> { ctx };
+                var parameters = new List<object> { ctx };
                 int position = 0;
 
                 if (_method.GetCustomAttribute<IgnoreArgumentsAttribute>() == null)
                 {
-                    foreach (ParameterInfo param in GetMethodParameters(_method))
+                    foreach (var param in GetMethodParameters(_method))
                     {
                         object obj = null;
                         if (param.IsImplicit() || position < args.Length)
                         {
                             if (param.IsParams())
                             {
-                                List<object> thing = new List<object>();
+                                var thing = new List<object>();
                                 foreach (string s in args.Skip(position))
                                 {
                                     thing.Add(await ParseParameter(s, param.ParameterType.GetElementType(), param, ctx));
                                 }
 
-                                Type type = param.ParameterType.GetElementType();
-
+                                var type = param.ParameterType.GetElementType();
                                 if (type == typeof(string))
                                 {
                                     parameters.Add(thing.Cast<string>().ToArray());
@@ -228,27 +230,27 @@ namespace WamBotRewrite.Api
             object obj;
             try
             {
-                TypeConverter converter = TypeDescriptor.GetConverter(t);
+                var converter = TypeDescriptor.GetConverter(t);
                 if (converter != null && converter.CanConvertFrom(typeof(string)))
                 {
                     obj = converter.ConvertFromInvariantString(arg);
                 }
                 else
                 {
-                    IParamConverter parseExtension = Program.ParamConverters.FirstOrDefault(p => p.AcceptedTypes.Contains(t));
+                    var parseExtension = Program.ParamConverters.FirstOrDefault(p => p.AcceptedTypes.Contains(t));
                     if (parseExtension != null)
                     {
                         obj = await parseExtension.Convert(arg, t, ctx);
                     }
                     else
                     {
-                        throw new CommandException($"Sorry! I couldn't parse what you specified for \"{info.Name}\". Expected {PrettyTypeName(t)}.");
+                        throw new CommandException($"Sorry! I couldn't parse what you specified for \"{info.Name}\". `{PrettyTypeName(t)}` expected.");
                     }
                 }
             }
             catch
             {
-                IParamConverter parseExtension = Program.ParamConverters.FirstOrDefault(p => p.AcceptedTypes.Contains(t));
+                var parseExtension = Program.ParamConverters.FirstOrDefault(p => p.AcceptedTypes.Contains(t));
                 if (parseExtension != null)
                 {
                     obj = await parseExtension.Convert(arg, t, ctx);
@@ -259,13 +261,30 @@ namespace WamBotRewrite.Api
                 }
             }
 
-            var validationAttributes = info.GetCustomAttributes<ValidationAttribute>();
-            foreach (var attribute in validationAttributes.Where(a => !a.RequiresValidationContext))
+            if (obj != null)
             {
-                if (!attribute.IsValid(obj))
+                var context = new ValidationContext(obj) { MemberName = info.Name, DisplayName = info.Name };
+                var validationAttributes = info.GetCustomAttributes<ValidationAttribute>();
+                var results = new List<ValidationResult>();
+                if (!Validator.TryValidateValue(obj, context, results, validationAttributes))
                 {
-                    throw new CommandException(
-                        $"That doesn't seem right! Check what you've specified for {info.Name}!{(!string.IsNullOrWhiteSpace(attribute.ErrorMessage) ? $" ({attribute.ErrorMessage})" : null)}");
+                    StringBuilder builder = new StringBuilder($"That doesn't seem right! Check what you've specified for {info.Name}!");
+                    if (results.Any(r => !string.IsNullOrWhiteSpace(r.ErrorMessage)))
+                    {
+                        builder.AppendLine("```");
+
+                        foreach (var result in results)
+                        {
+                            if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+                            {
+                                builder.AppendLine(result.ErrorMessage);
+                            }
+                        }
+
+                        builder.AppendLine("```");
+                    }
+
+                    throw new CommandException(builder.ToString());
                 }
             }
 
@@ -314,7 +333,7 @@ namespace WamBotRewrite.Api
 
         internal static void AppendAttribute(StringBuilder b, bool usage, CustomAttributeData a, Type at)
         {
-            if (!at.Namespace.StartsWith("System.Runtime") && at != typeof(DebuggerStepThroughAttribute))
+            if (!at.Namespace.StartsWith("System.Runtime") && at != typeof(DebuggerStepThroughAttribute) && at != typeof(ParamArrayAttribute))
             {
                 b.Append("[");
 

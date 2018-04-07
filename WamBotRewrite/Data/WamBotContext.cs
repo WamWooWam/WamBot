@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,6 +14,9 @@ namespace WamBotRewrite.Data
         public DbSet<Guild> Guilds { get; set; }
         public DbSet<Channel> Channels { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
+
+        [NotMapped]
+        public Lazy<User> BotUser => new Lazy<User>(() => Users.Find((long)Program.Client.CurrentUser.Id));
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -14,7 +14,6 @@ namespace WamBotRewrite.Api
 {
     public class CommandContext
     {
-        private TaskCompletionSource<IMessage> _replyCompletionSource;
         private DiscordSocketClient _client;
 
         internal CommandContext(string[] args, IMessage msg, DiscordSocketClient client, WamBotContext db)
@@ -100,46 +99,37 @@ namespace WamBotRewrite.Api
 
             if (content.Length > 2000)
             {
-                for (int i = 0; i < content.Length; i += 1993)
-                {
-                    string str = content.Substring(i, Math.Min(1993, content.Length - i));
-                    if (content.StartsWith("```") && !str.StartsWith("```"))
-                    {
-                        str = "```" + str;
-                    }
-                    if (content.EndsWith("```") && !str.EndsWith("```"))
-                    {
-                        str = str + "```";
-                    }
-
-                    await Program.LogMessage(this, $"Chunking message to {str.Length} chars");
-
-                    if (ChannelData != null)
-                        ChannelData.MessagesSent += 1;
-                    await Channel.SendMessageAsync(str);
-
-                    await Task.Delay(2000);
-                }
+                await Channel.SendChunkedMessageAsync(content, tts, ChannelData);
             }
             else
             {
                 if (ChannelData != null)
                     ChannelData.MessagesSent += 1;
 
-                await Channel.SendMessageAsync(content, false, emb);
+                await Channel.SendMessageAsync(content, tts, emb);
             }
         }
 
         public virtual async Task<IMessage> ReplyAndAwaitResponseAsync(string content, Embed embed = null, int timeout = 10_000)
         {
-            _replyCompletionSource = new TaskCompletionSource<IMessage>();
+            var _replyCompletionSource = new TaskCompletionSource<IMessage>();
             CancellationTokenSource source = new CancellationTokenSource();
 
             await ReplyAsync(content, emb: embed);
 
+            Func<SocketMessage, Task> task = (arg) =>
+            {
+                if (arg.Author.Id == Message.Author.Id)
+                {
+                    _replyCompletionSource.TrySetResult(arg);
+                }
+
+                return Task.CompletedTask;
+            };
+
             try
             {
-                _client.MessageReceived += _client_MessageReceived;
+                _client.MessageReceived += task;
                 source.CancelAfter(timeout);
                 using (source.Token.Register(() => _replyCompletionSource.TrySetCanceled()))
                 {
@@ -148,18 +138,8 @@ namespace WamBotRewrite.Api
             }
             finally
             {
-                _client.MessageReceived -= _client_MessageReceived;
+                _client.MessageReceived -= task;
             }
-        }
-
-        private Task _client_MessageReceived(SocketMessage arg)
-        {
-            if (arg.Author.Id == Message.Author.Id)
-            {
-                _replyCompletionSource.TrySetResult(arg);
-            }
-
-            return Task.CompletedTask;
         }
     }
 }

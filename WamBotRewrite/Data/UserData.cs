@@ -37,6 +37,8 @@ namespace WamBotRewrite.Data
         public bool MarkovEnabled { get; set; }
         public bool MarkovTwitterEnabled { get; set; }
 
+        public bool Ignored { get; set; }
+
         [InverseProperty("From")]
         public List<Transaction> TransactionsSent { get; set; }
 

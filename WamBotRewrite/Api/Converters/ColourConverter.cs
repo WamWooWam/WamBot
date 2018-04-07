@@ -18,12 +18,26 @@ namespace WamBotRewrite.Api.Converters
             string str = arg.TrimStart('#');
             if (uint.TryParse(str, NumberStyles.HexNumber, CultureInfo.CurrentCulture, out uint n))
             {
-                var c = System.Drawing.Color.FromArgb((int)n);
-                return Task.FromResult<object>(new Rgba32(c.R, c.G, c.B, c.A));
+                return Task.FromResult<object>(Rgba32.FromHex(str));
             }
             else
             {
-                throw new CommandException("That's not a colour you numpty!");
+                if (arg.ToLowerInvariant() == "accent")
+                {
+                    return Task.FromResult<object>(new Rgba32(Program.AccentColour.R, Program.AccentColour.G, Program.AccentColour.B));
+                }
+                else
+                {
+                    var f = typeof(Rgba32).GetFields().FirstOrDefault(re => re.Name.ToLowerInvariant() == arg.ToLowerInvariant());
+                    if (f != null)
+                    {
+                        return Task.FromResult(f.GetValue(null));
+                    }
+                    else
+                    {
+                        throw new CommandException("That's not a colour you numpty!");
+                    }
+                }
             }
         }
     }

@@ -13,6 +13,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using WamBotRewrite.Api;
+using WamBotRewrite.Data;
 using WamWooWam.Core;
 
 namespace WamBotRewrite.Commands
@@ -34,10 +35,26 @@ namespace WamBotRewrite.Commands
 
         public override string Description => "The usual stuff most bots seem to have, including me.";
 
-        [Command("Echo", "Echos the text you give it.", new[] { "echo", "say" })]
+        [Command("Echo", "Echos the text you give it.", new[] { "echo" })]
         public async Task Echo(CommandContext ctx, params string[] args)
         {
             await ctx.ReplyAsync(string.Join(" ", args));
+        }
+
+        [OwnerOnly]
+        [Command("Say", "Hehehe", new[] { "say" })]
+        public async Task Say(CommandContext ctx, IChannel channel, params string[] args)
+        {
+            if (channel is IMessageChannel c)
+                await c.SendMessageAsync(string.Join(" ", args));
+        }
+
+        [OwnerOnly]
+        [Command("Ignore", "Hehehe", new[] { "ignore" })]
+        public async Task Ignore(CommandContext ctx, IUser user)
+        {
+            var u = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, () => new User(user));
+            u.Ignored = !u.Ignored;
         }
 
         [Command("Uptime", "How long have I been running for? This'll let you know.", new[] { "up", "uptime" })]
@@ -129,8 +146,14 @@ namespace WamBotRewrite.Commands
 
             foreach (var u in ctx.DbContext.Users)
             {
-                var us = ctx.Client.GetUser((ulong)u.UserId);
-                builder.AppendLine($"{us.Username}#{us.Discriminator} - {Tools.GetHappinessLevel(u.Happiness)} ({u.Happiness})");
+                if (u != null)
+                {
+                    var us = ctx.Client.GetUser((ulong)u.UserId);
+                    if (us != null)
+                    {
+                        builder.AppendLine($"{us.Username}#{us.Discriminator} - {Tools.GetHappinessLevel(u.Happiness)} ({u.Happiness})");
+                    }
+                }
             }
 
             builder.AppendLine("```");
@@ -263,13 +286,18 @@ namespace WamBotRewrite.Commands
             builder.AddField("Created At", guild.CreatedAt.ToString());
             builder.AddField("Available?", guild.Available.ToString(), true);
 
-            if (guild.Available)
+            if (guild.Available && guild is SocketGuild g)
             {
-                builder.AddField("AFK Channel", $"<#{guild.AFKChannelId}>", true);
-                builder.AddField("AFK Timeout", guild.AFKTimeout != 0 ? TimeSpan.FromSeconds(guild.AFKTimeout).ToString() : "Not Set", true);
+                if (guild.AFKChannelId != null)
+                {
+                    builder.AddField("AFK Channel", $"<#{guild.AFKChannelId}>", true);
+                    builder.AddField("AFK Timeout", guild.AFKTimeout != 0 ? TimeSpan.FromSeconds(guild.AFKTimeout).ToString() : "Not Set", true);
+                }
+
                 builder.AddField("Default Channel", $"<#{guild.DefaultChannelId}>", true);
                 builder.AddField("Default Message Notifications", guild.DefaultMessageNotifications == DefaultMessageNotifications.AllMessages ? "NO. NONONONONO. BAD. REEEEEE." : ":ok_hand:", true);
                 builder.AddField("Owner", $"<@{guild.OwnerId}>", true);
+                builder.AddField("Members", $"{g.MemberCount} Total, {g.Users.Count(m => m.Status == UserStatus.Online)} Online, {g.Users.Count(m => m.Status == UserStatus.Idle || m.Status == UserStatus.AFK)} Idle, {g.Users.Count(m => m.Status == UserStatus.DoNotDisturb)} Do Not Disturb.", true);
 
                 if (guild.Roles.Any())
                 {
@@ -285,7 +313,7 @@ namespace WamBotRewrite.Commands
                 }
 
                 if (guild.Emotes.Any())
-                    builder.AddField("Emotes", string.Join(" ", guild.Emotes.Select(g => g.ToString())));
+                    builder.AddField("Emotes", string.Join(" ", guild.Emotes.Select(e => e.ToString())));
 
                 if (guild.SplashUrl != null)
                     builder.WithImageUrl(guild.SplashUrl);
@@ -350,6 +378,8 @@ namespace WamBotRewrite.Commands
             builder.AddField("Total Members", ctx.Client.Guilds.Sum(g => g.MemberCount).ToString(), true);
             builder.AddField("Available Commands", Program.Commands.Count.ToString(), true);
             //builder.AddField("Available Parse Extensions", Program.ParseExtensions.Count.ToString(), true);
+
+            builder.AddField("Uptime", (DateTime.Now - _startupTime.Value).ToNaturalString());
 
             await ctx.ReplyAsync(emb: builder.Build());
         }

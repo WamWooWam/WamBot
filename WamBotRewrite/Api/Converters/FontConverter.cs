@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using WamBotRewrite.Commands;
 
 namespace WamBotRewrite.Api.Converters
 {
@@ -13,7 +14,7 @@ namespace WamBotRewrite.Api.Converters
 
         public Task<object> Convert(string arg, Type to, CommandContext context)
         {
-            if (SystemFonts.TryFind(arg, out FontFamily family))
+            if (ImageCommands.Fonts.TryFind(arg, out FontFamily family))
             {
                 return Task.FromResult<object>(family);
             }

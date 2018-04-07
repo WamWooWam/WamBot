@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,9 +25,16 @@ namespace WamBotRewrite.Api.Converters
             }
             else
             {
-                user = context.Message.MentionedUserIds
-                    .Select(u => context.Client.GetUser(u))
-                    .FirstOrDefault();
+                if (context.Message is SocketMessage m)
+                {
+                    user = m.MentionedUsers.FirstOrDefault(u => u.Username.ToLowerInvariant().Contains(arg.ToLowerInvariant()));
+                }
+                else
+                {
+                    user = context.Message.MentionedUserIds
+                        .Select(u => context.Client.GetUser(u))
+                        .FirstOrDefault(u => u.Username.ToLowerInvariant().Contains(arg.ToLowerInvariant()));
+                }
             }
 
             return user;

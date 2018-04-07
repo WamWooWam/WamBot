@@ -163,7 +163,8 @@ namespace WamBotRewrite.Models
         public MixingWaveProvider32 Mixer { get; set; }
 
         public SongModel NowPlaying { get; set; }
-        public TimeSpan Elapsed { get; set; }
+        public DateTime Start { get; set; }
+        public TimeSpan Elapsed => DateTime.Now - Start;
         public TimeSpan Total { get; set; }
 
         public bool Skip { get; set; }

@@ -21,6 +21,8 @@ using WamWooWam.Core.Windows;
 using NAudio;
 using NAudio.Wave;
 using SixLabors.ImageSharp;
+using WamBotRewrite.Misc;
+using WamWooWam.Core;
 
 namespace WamBotRewrite.Commands
 {
@@ -282,7 +284,32 @@ namespace WamBotRewrite.Commands
                         if (!File.Exists(path) || !File.Exists(metaPath))
                         {
                             var message = await ctx.Channel.SendMessageAsync("Downloading...");
-                            DownloadAndWait(uri, name);
+
+                            ProcessStartInfo inf = new ProcessStartInfo("youtube-dl", $"-v --write-info-json {(File.Exists(Path.Combine(Path.GetTempPath(), name + ".aac")) ? "--skip-download" : "")} -f m4a/aac/bestaudio/worst --extract-audio --audio-format m4a --audio-quality 128K {uri} -o {Path.Combine(Path.GetTempPath(), name + ".%(ext)s")} --newline")
+                            {
+                                UseShellExecute = false,
+                                RedirectStandardOutput = true
+                            };
+
+                            Stopwatch watch = Stopwatch.StartNew();
+
+                            Process process = Process.Start(inf);
+                            process.BeginOutputReadLine();
+                            process.OutputDataReceived += async (o, e) =>
+                            {
+                                if (e.Data != null && watch.ElapsedMilliseconds > 2000)
+                                {
+                                    watch.Restart();
+
+                                    if (e.Data.StartsWith("[download]"))
+                                        await message.ModifyAsync(m => m.Content = $"Downloading... {e.Data.Remove(0, 10).Trim()}");
+                                    if (e.Data.StartsWith("[ffmpeg]"))
+                                        await message.ModifyAsync(m => m.Content = $"Converting...");
+                                }
+                            };
+
+                            await Task.Run(() => process.WaitForExit());
+
                             await message.DeleteAsync();
                         }
 
@@ -353,34 +380,10 @@ namespace WamBotRewrite.Commands
                 else if (ctx.Message.Attachments.Any())
                 {
                     IAttachment attachment = ctx.Message.Attachments.First();
-                    IUserMessage message = await ctx.Channel.SendMessageAsync($"Downloading \"{Path.GetFileName(attachment.Filename)}\"...");
-
-                    string filePath = "";
-                    using (Stream remoteStr = await HttpClient.GetStreamAsync(attachment.Url))
-                    {
-                        using (MemoryStream memStr = new MemoryStream())
-                        {
-                            await remoteStr.CopyToAsync(memStr);
-                            memStr.Seek(0, SeekOrigin.Begin);
-
-                            byte[] hash = _md5.Value.ComputeHash(memStr);
-                            string name = string.Join("", hash.Select(b => b.ToString("x2")));
-                            filePath = Path.Combine(Path.GetTempPath(), name + Path.GetExtension(attachment.Filename));
-                            if (!File.Exists(filePath))
-                            {
-                                using (FileStream str = File.Create(filePath))
-                                {
-                                    memStr.Seek(0, SeekOrigin.Begin);
-                                    await memStr.CopyToAsync(str, 81920, connection.Token);
-                                }
-                            }
-                        }
-                    }
+                    string filePath = await DownloadAttachmentAsync(ctx, connection, attachment);
 
                     model.FilePath = filePath;
                     model.Title = Path.GetFileNameWithoutExtension(attachment.Filename).Replace("_", " ");
-
-                    try { await message.DeleteAsync(); } catch { }
                 }
                 else
                 {
@@ -467,6 +470,65 @@ namespace WamBotRewrite.Commands
             }
         }
 
+        private static async Task<string> DownloadAttachmentAsync(CommandContext ctx, ConnectionModel connection, IAttachment attachment)
+        {
+            IUserMessage message = await ctx.Channel.SendMessageAsync($"Downloading \"{Path.GetFileName(attachment.Filename)}\"...");
+
+            string filePath = "";
+            using (Stream remoteStr = await HttpClient.GetStreamAsync(attachment.Url))
+            {
+                using (MemoryStream memStr = new MemoryStream())
+                {
+                    await remoteStr.CopyToAsync(memStr);
+                    memStr.Seek(0, SeekOrigin.Begin);
+
+                    byte[] hash = _md5.Value.ComputeHash(memStr);
+                    string name = string.Join("", hash.Select(b => b.ToString("x2")));
+                    filePath = Path.Combine(Path.GetTempPath(), name + Path.GetExtension(attachment.Filename));
+                    if (!File.Exists(filePath))
+                    {
+                        using (FileStream str = File.Create(filePath))
+                        {
+                            memStr.Seek(0, SeekOrigin.Begin);
+                            await memStr.CopyToAsync(str, 81920, connection.Token);
+                        }
+                    }
+                }
+            }
+
+            try { await message.DeleteAsync(); } catch { }
+
+            return filePath;
+        }
+
+        [Command("Mix", "Mixes a track with one in the queue.", new[] { "mix" })]
+        public async Task Mix(CommandContext ctx, int i)
+        {
+            ConnectionModel connection;
+            if ((connection = await GetConnectionModelAsync(ctx)) != null)
+            {
+                var m = connection.Songs.ElementAtOrDefault(i - 1);
+                if (m != null)
+                {
+                    IAttachment attachment = ctx.Message.Attachments.FirstOrDefault();
+                    if (attachment != null)
+                    {
+                        string filePath = await DownloadAttachmentAsync(ctx, connection, attachment);
+                        m.AdditionalTracks.Add(filePath);
+                        await ctx.ReplyAsync($"Added as track to {m}");
+                    }
+                    else
+                    {
+                        await ctx.ReplyAsync("Hey! You'll need to attach a file for this!");
+                    }
+                }
+                else
+                {
+                    await ctx.ReplyAsync("Sorry! That's not a song in the queue!");
+                }
+            }
+        }
+
         [Command("Skip", "Skips the song I'm currently playing.", new[] { "skip" })]
         public async Task Skip(CommandContext ctx)
         {
@@ -515,7 +577,6 @@ namespace WamBotRewrite.Commands
 
                 using (MemoryStream memStr = new MemoryStream())
                 {
-
                     while (connection.Connected)
                     {
                         if (connection.Songs.TryDequeue(out SongModel model))
@@ -524,7 +585,7 @@ namespace WamBotRewrite.Commands
 
                             try
                             {
-                                using (RawSourceWaveStream reader = GetAudioStream(connection, model.FilePath, memStr))
+                                using (BetterWaveStream reader = await GetAudioStreamAsync(connection, model, memStr))
                                 {
                                     await message.ModifyAsync(m => m.Content = $"Playing: **{model}**");
 
@@ -533,19 +594,19 @@ namespace WamBotRewrite.Commands
 
                                     var waveProvider = volume;
 
-                                    connection.Total = TimeSpan.FromSeconds(reader.Length / (reader.WaveFormat.SampleRate * (reader.WaveFormat.BitsPerSample / 16)));
                                     connection.NowPlaying = model;
 
                                     byte[] buff = new byte[3840];
                                     int br = 0;
 
                                     await connection.Connection.SetSpeakingAsync(true);
+                                    connection.Start = DateTime.Now;
 
                                     while ((br = waveProvider.Read(buff, 0, buff.Length)) > 0)
                                     {
                                         connection.Token.ThrowIfCancellationRequested();
 
-                                        if (connection.Skip)
+                                        if (connection.Skip || reader.Process.HasExited)
                                         {
                                             break;
                                         }
@@ -557,8 +618,6 @@ namespace WamBotRewrite.Commands
                                                 buff[i] = 0;
                                             }
                                         }
-
-                                        connection.Elapsed = TimeSpan.FromMilliseconds(reader.Position);
 
                                         await stream.WriteAsync(buff, 0, 3840, connection.Token);
                                         //connection.RecordBuffer.AddSamples(buff, 0, buff.Length);
@@ -582,7 +641,7 @@ namespace WamBotRewrite.Commands
                         connection.NowPlaying = null;
                         connection.Skip = false;
 
-                        await Task.Delay(500);
+                        await Task.Delay(1000);
                     }
                 }
             }
@@ -595,51 +654,48 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        private static RawSourceWaveStream GetAudioStream(ConnectionModel c, string file, MemoryStream str)
+        private static async Task<BetterWaveStream> GetAudioStreamAsync(ConnectionModel c, SongModel m, MemoryStream str)
         {
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            //if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            //{
+            //    using (MediaFoundationReader reader = new MediaFoundationReader(file))
+            //    using (MediaFoundationResampler resampler = new MediaFoundationResampler(reader, 48000))
+            //    {
+            //        var final = resampler.WaveFormat.Channels == 1 ? (IWaveProvider)new Wave16ToFloatProvider(resampler) : resampler;
+            //        str.SetLength(0);
+
+            //        int br = 0;
+            //        byte[] buff = new byte[81290];
+            //        while ((br = final.Read(buff, 0, buff.Length)) > 0)
+            //        {
+            //            str.Write(buff, 0, br);
+            //        }
+
+            //        str.Seek(0, SeekOrigin.Begin);
+            //        return new RawSourceWaveStream(str, final.WaveFormat);
+            //    }
+            //}
+            //else
+            //{
+            string args = $@"-i ""{m.FilePath}"" {(m.AdditionalTracks.Any() ? string.Concat(m.AdditionalTracks.Select(t => $@"-i ""{t}"" ")) + $"-filter_complex amerge=inputs={m.AdditionalTracks.Count + 1}" : "")} -ac 2 -f s16le -ar 48000  pipe:1";
+
+            var psi = new ProcessStartInfo("ffprobe", $"-v error -sexagesimal -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{m.FilePath}\"");
+            string s = await psi.RunAndGetStdoutAsync();
+            c.Total = TimeSpan.Parse(s.Trim());
+
+            Program.LogMessage("MUSIC", args).GetAwaiter().GetResult();
+
+            psi = new ProcessStartInfo
             {
-                using (MediaFoundationReader reader = new MediaFoundationReader(file))
-                using (MediaFoundationResampler resampler = new MediaFoundationResampler(reader, 48000))
-                {
-                    var final = resampler.WaveFormat.Channels == 1 ? (IWaveProvider)new Wave16ToFloatProvider(resampler) : resampler;
-                    str.SetLength(0);
+                FileName = "ffmpeg",
+                Arguments = args,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            };
 
-                    int br = 0;
-                    byte[] buff = new byte[3840];
-                    while ((br = final.Read(buff, 0, buff.Length)) > 0)
-                    {
-                        str.Write(buff, 0, br);
-                    }
-
-                    str.Seek(0, SeekOrigin.Begin);
-                    return new RawSourceWaveStream(str, final.WaveFormat);
-                }
-            }
-            else
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "ffmpeg",
-                    Arguments = $@"-i ""{file}"" -ac 2 -f s16le -ar 48000 pipe:1",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false
-                };
-                using (var ffmpeg = Process.Start(psi))
-                {
-                    str.SetLength(0);
-                    ffmpeg.StandardOutput.BaseStream.CopyTo(str);
-                    str.Seek(0, SeekOrigin.Begin);
-                }
-
-                return new RawSourceWaveStream(str, new WaveFormat(48000, 2));
-            }
-        }
-
-        private static void DownloadAndWait(Uri uri, string id)
-        {
-            Process process = Process.Start("youtube-dl", $"-v --write-info-json {(File.Exists(Path.Combine(Path.GetTempPath(), id + ".aac")) ? "--skip-download" : "")} -f m4a/aac/bestaudio/worst --hls-prefer-ffmpeg -4 --extract-audio --audio-format m4a --audio-quality 128K {uri} -o {Path.Combine(Path.GetTempPath(), id + ".%(ext)s")} --newline");
-            process.WaitForExit();
+            var ffmpeg = Process.Start(psi);
+            return new BetterWaveStream(new BufferedStream(ffmpeg.StandardOutput.BaseStream, 3840 * 4), new WaveFormat(48000, 2), ffmpeg);
+            //}
         }
 
         private static void AddSongField(EmbedBuilder builder, SongModel song, bool playing)

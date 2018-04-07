@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Text;
 using Tweetinvi.Models;
 
@@ -14,12 +15,16 @@ namespace WamBotRewrite.Data
             AnnouncementChnanels = new Dictionary<ulong, ulong>();
             DisallowedGuilds = new HashSet<ulong>();
 
-            TwitterCredentials = new TwitterCredentials();
+            TwitterCredentials = null;
+            EmailCredentials = new NetworkCredential();
+            
 
             StatusUpdateInterval = TimeSpan.FromMinutes(5);
             StatusMessages = new string[0];
             MemeLines = new string[0];
         }
+
+        public string Prefix { get; set; }
 
         public string Token { get; set; }
 
@@ -29,7 +34,9 @@ namespace WamBotRewrite.Data
 
         public TwitterCredentials TwitterCredentials { get; set; }
 
-        public string Prefix { get; set; }
+        public NetworkCredential EmailCredentials { get; set; }
+
+        public string AbuseEmail { get; set; }
 
         public HashSet<string> AdditionalPluginDirectories { get; set; }
 

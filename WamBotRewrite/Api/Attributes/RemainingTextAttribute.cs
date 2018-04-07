@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace WamBotRewrite.Api
+namespace WamBotRewrite.Api.Attributes
 {
-    class NsfwAttribute : Attribute
+    class RemainingTextAttribute : Attribute
     {
     }
 }
