@@ -51,10 +51,10 @@ namespace WamBotRewrite.Commands
 
         [OwnerOnly]
         [Command("Ignore", "Hehehe", new[] { "ignore" })]
-        public async Task Ignore(CommandContext ctx, IUser user)
+        public async Task Ignore(CommandContext ctx)
         {
-            var u = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, () => new User(user));
-            u.Ignored = !u.Ignored;
+            ctx.UserData.Ignored = !ctx.UserData.Ignored;
+            await ctx.ReplyAsync($"You have opted to be ignored by WamBot, WamBot will now ignore all commands from you, if you wish to change this, please contact {Program.Application.Owner}");
         }
 
         [Command("Uptime", "How long have I been running for? This'll let you know.", new[] { "up", "uptime" })]
@@ -485,31 +485,7 @@ namespace WamBotRewrite.Commands
                 {
                     str.Clear();
                     str.AppendLine(cat.Key.Description.Substring(0, cat.Key.Description.IndexOf("\n") != -1 ? cat.Key.Description.IndexOf("\n") : cat.Key.Description.Length));
-                    str.Append("`");
-
-                    bool first = true;
-                    foreach (var command in cat.OrderBy(c => c.Aliases.First()))
-                    {
-                        if (Tools.CheckPermissions(ctx.Client, ctx.Client.CurrentUser, (ISocketMessageChannel)ctx.Channel, command))
-                        {
-                            if (Tools.CheckPermissions(ctx.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
-                            {
-                                if (!first)
-                                {
-                                    str.Append(", ");
-                                }
-                                else
-                                {
-                                    first = !first;
-                                }
-
-                                str.Append(command.Aliases.First());
-                            }
-                        }
-                    }
-
-                    str.Append("`");
-
+                    AppendCommands(ctx, str, cat);
                     builder.AddField($"{cat.Key.Name} Commands", str.ToString());
                 }
             }
@@ -519,6 +495,27 @@ namespace WamBotRewrite.Commands
                 builder = ctx.GetEmbedBuilder("Help");
                 builder.AddField("Command not found.", $"That command doesn't seem to exist, or you don't have permission to run it! " +
                     $"Run `{Program.Config.Prefix}help` for a list of all commands!");
+
+                if (name != null)
+                {
+                    StringBuilder str = new StringBuilder();
+
+                    List<(CommandRunner, int)> commands = new List<(CommandRunner, int)>();
+                    foreach (var c in Program.Commands)
+                    {
+                        var a = c.Aliases.Where(s => Tools.StringDistance(s, name) <= 2);
+                        if (a.Any())
+                        {
+                            commands.Add((c, a.Min(s => Tools.StringDistance(s, name))));
+                        }
+                    }
+
+                    if (commands.Any())
+                    {
+                        AppendCommands(ctx, str, commands.Select(c => c.Item1), name);
+                        builder.AddField("Did you mean?", $"{str}");
+                    }
+                }
             }
 
             builder
@@ -526,6 +523,34 @@ namespace WamBotRewrite.Commands
                     $"My current prefix is {Program.Config.Prefix} (duh)", Program.Application.Owner.GetAvatarUrl())
                 .WithCurrentTimestamp();
             await ctx.ReplyAsync(emb: builder.Build());
+        }
+
+        private static void AppendCommands(CommandContext ctx, StringBuilder str, IEnumerable<CommandRunner> cat, string s = null)
+        {
+            str.Append("`");
+
+            bool first = true;
+            foreach (var command in s != null ? cat.OrderBy(a => a.Aliases.Min(c => Tools.StringDistance(c, s))) : cat.OrderBy(c => c.Aliases.First()))
+            {
+                if (Tools.CheckPermissions(ctx.Client, ctx.Client.CurrentUser, (ISocketMessageChannel)ctx.Channel, command))
+                {
+                    if (Tools.CheckPermissions(ctx.Client, ctx.Author, (ISocketMessageChannel)ctx.Channel, command))
+                    {
+                        if (!first)
+                        {
+                            str.Append(", ");
+                        }
+                        else
+                        {
+                            first = !first;
+                        }
+
+                        str.Append(s != null ? command.Aliases.OrderBy(a => Tools.StringDistance(a, s)).First() : command.Aliases.First());
+                    }
+                }
+            }
+
+            str.Append("`");
         }
     }
 }

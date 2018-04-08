@@ -1,6 +1,7 @@
 ﻿using Discord;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,7 +11,7 @@ namespace WamBotRewrite.Api.Converters
     {
         public Type[] AcceptedTypes => new[] { typeof(IGuild) };
 
-        public async Task<object> Convert(string arg, Type to, CommandContext context)
+        public async Task<object> Convert(string arg, ParameterInfo to, CommandContext context)
         {
             IGuild guild = null;
 

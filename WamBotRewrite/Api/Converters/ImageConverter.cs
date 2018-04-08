@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using WamBotRewrite.Commands;
@@ -15,7 +16,7 @@ namespace WamBotRewrite.Api.Converters
     {
         public Type[] AcceptedTypes => new[] { typeof(Image<Rgba32>) };
 
-        public async Task<object> Convert(string arg, Type to, CommandContext context)
+        public async Task<object> Convert(string arg, ParameterInfo to, CommandContext context)
         {
             Image<Rgba32> finishedImage = null;
 

@@ -6,7 +6,6 @@
     
     <Deterministic>false</Deterministic>
     <AssemblyVersion>4.0.*</AssemblyVersion>
-    <FileVersion>4.0.*</FileVersion>
     <AssemblyName>WamBot</AssemblyName>
    
     <StartupObject></StartupObject>
@@ -26,6 +25,7 @@
     <PackageReference Include="dpm-libsodium-net" Version="0.13.0" />
     <PackageReference Include="Markdig" Version="0.15.0" />
     <PackageReference Include="NAudio" Version="1.8.4" />
+    <PackageReference Include="RedditSharp" Version="2.0.0-CI00063" />
     <PackageReference Include="taglib" Version="2.1.0" />
     <PackageReference Include="Microsoft.ApplicationInsights" Version="2.6.0-beta2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.0.2" />
@@ -35,7 +35,7 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="1.0.0-beta0003" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta0003" />
     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
-    <PackageReference Include="Discord.Net" Version="2.0.0-beta2-00920" />
+    <PackageReference Include="Discord.Net" Version="2.0.0-beta2-00921" />
     <PackageReference Include="TweetinviAPI" Version="3.0.0" />
     
     <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools" Version="2.0.1" />

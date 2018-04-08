@@ -27,7 +27,7 @@ namespace WamBotRewrite.Commands
         }
 
         [Command("Transfer", "Send money to someone maybe special!", new[] { "trans", "give", "transfer" })]
-        public async Task Transfer(CommandContext ctx, IUser user, decimal amount)
+        public async Task Transfer(CommandContext ctx, decimal amount, IUser user)
         {
             if (user.Id != ctx.Author.Id)
             {

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,7 +14,7 @@ namespace WamBotRewrite.Api.Converters
     {
         public Type[] AcceptedTypes => new[] { typeof(Rgba32), typeof(Rgba32?) };
 
-        public Task<object> Convert(string arg, Type to, CommandContext context)
+        public Task<object> Convert(string arg, ParameterInfo to, CommandContext context)
         {
             string str = arg.TrimStart('#');
             if (uint.TryParse(str, NumberStyles.HexNumber, CultureInfo.CurrentCulture, out uint n))

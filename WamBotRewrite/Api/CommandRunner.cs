@@ -173,14 +173,11 @@ namespace WamBotRewrite.Api
                                 }
 
                                 var type = param.ParameterType.GetElementType();
-                                if (type == typeof(string))
-                                {
-                                    parameters.Add(thing.Cast<string>().ToArray());
-                                }
-                                else
-                                {
-                                    throw new NotSupportedException("Parameter argument type unsupported.");
-                                }
+
+                                MethodInfo[] methods = typeof(Enumerable).GetMethods(BindingFlags.Public | BindingFlags.Static);
+                                object enumerable = methods.FirstOrDefault(c => c.Name == "Cast").MakeGenericMethod(type).Invoke(null, new[] { thing });
+                                object array = methods.FirstOrDefault(c => c.Name == "ToArray").MakeGenericMethod(type).Invoke(null, new[] { enumerable });
+                                parameters.Add(array);
                             }
                             else
                             {
@@ -240,7 +237,7 @@ namespace WamBotRewrite.Api
                     var parseExtension = Program.ParamConverters.FirstOrDefault(p => p.AcceptedTypes.Contains(t));
                     if (parseExtension != null)
                     {
-                        obj = await parseExtension.Convert(arg, t, ctx);
+                        obj = await parseExtension.Convert(arg, info, ctx);
                     }
                     else
                     {
@@ -253,7 +250,7 @@ namespace WamBotRewrite.Api
                 var parseExtension = Program.ParamConverters.FirstOrDefault(p => p.AcceptedTypes.Contains(t));
                 if (parseExtension != null)
                 {
-                    obj = await parseExtension.Convert(arg, t, ctx);
+                    obj = await parseExtension.Convert(arg, info, ctx);
                 }
                 else
                 {
