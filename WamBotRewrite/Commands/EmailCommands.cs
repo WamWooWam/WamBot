@@ -18,16 +18,23 @@ namespace WamBotRewrite.Commands
 
         public override string Description => "Allows you to spend WamCash sending emails";
 
+        private static MarkdownPipeline pipeline = new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions()
+            .UseEmojiAndSmiley()
+            .UseBootstrap()
+            .DisableHtml()
+            .Build();
+
         [Command("Send", "Sends an email.", new[] { "send", "mail", "email" })]
         public async Task Send(CommandContext ctx, [EmailAddress] string address, string subject, params string[] message)
         {
-            if (Program.Config.EmailCredentials != null)
+            if (Program.Config.Email.Enabled)
             {
                 using (SmtpClient client = new SmtpClient("localhost"))
                 {
-                    client.Credentials = Program.Config.EmailCredentials;
+                    client.Credentials = new NetworkCredential(Program.Config.Email.Username, Program.Config.Email.Password);
 
-                    var botAddress = new MailAddress(Program.Config.EmailCredentials.UserName, $"{ctx.Author} via WamBot");
+                    var botAddress = new MailAddress(Program.Config.Email.Username, $"{ctx.Author} via WamBot");
                     try
                     {
                         var toAddress = new MailAddress(address);
@@ -36,9 +43,9 @@ namespace WamBotRewrite.Commands
                             var m = new MailMessage(botAddress, toAddress)
                             {
                                 Subject = subject,
-                                Body = $"{Markdown.ToHtml(string.Join(" ", message).Replace("\\\"", "\""))}<hr />" +
+                                Body = $"{Markdown.ToHtml(string.Join(" ", message).Replace("\\\"", "\""), pipeline)}<hr />" +
                                 $"<p>This is an email from {ctx.Author} sent via WamBot.To report abuse, contact {Program.Application.Owner} on Discord" +
-                                $"<br />or forward this email to <a href=\"mailto:{Program.Config.AbuseEmail}\">{Program.Config.AbuseEmail}</a></p> ",
+                                $"<br />or forward this email to <a href=\"mailto:{Program.Config.Email.AbuseEmail}\">{Program.Config.Email.AbuseEmail}</a></p> ",
                                 IsBodyHtml = true
                             };
 

@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
 using WamBotRewrite.Api;
@@ -334,7 +335,7 @@ namespace WamBotRewrite.Commands
                 builder.AddField("Description", command.Description, true);
                 builder.AddField("Extended Description", string.IsNullOrWhiteSpace(command.ExtendedDescription) ? "Unavailable" : command.ExtendedDescription, true);
                 builder.AddField("Aliases", string.Join(", ", command.Aliases), true);
-                builder.AddField("Usage", $"```cs\r\n{Program.Config.Prefix}{command.Aliases.First()} {command.Usage}\r\n```");
+                builder.AddField("Usage", $"```cs\r\n{Program.Config.Bot.Prefix}{command.Aliases.First()} {command.Usage}\r\n```");
 
                 builder.AddField("Method Name", $"`{command._method.Name}`", true);
                 builder.AddField("Method Parameter Count", command._method.GetParameters().Count().ToString(), true);
@@ -358,17 +359,24 @@ namespace WamBotRewrite.Commands
             Process process = Process.GetCurrentProcess();
             AssemblyName mainAssembly = Assembly.GetExecutingAssembly().GetName();
 
-            EmbedBuilder builder = ctx.GetEmbedBuilder("Statistics");
+            var targetFramework = Assembly
+                .GetEntryAssembly()?
+                .GetCustomAttribute<TargetFrameworkAttribute>();
+
+            EmbedBuilder builder = ctx.GetEmbedBuilder("Statistics")
+                .WithThumbnailUrl(Program.Application.IconUrl);
+
+            builder.AddField("Ping", $"{ctx.Client.Latency}ms", false);
             builder.AddField("Operating System", RuntimeInformation.OSDescription, false);
+
+            if (targetFramework?.FrameworkName != null)
+                builder.AddField("Target Framework", targetFramework.FrameworkName, false);
+
             builder.AddField("RAM Usage (GC)", Files.SizeSuffix(GC.GetTotalMemory(false)), true);
-            builder.AddField("RAM Usage (Current)", Files.SizeSuffix(process.WorkingSet64), true);
-            builder.AddField("RAM Usage (Peak)", Files.SizeSuffix(process.PeakWorkingSet64), true);
-
-            builder.AddField("Ping", $"{ctx.Client.Latency}ms", true);
+            builder.AddField("RAM Usage (Process)", Files.SizeSuffix(process.WorkingSet64), true);
             builder.AddField("Version", $"{mainAssembly.Version}", true);
-            builder.AddField("Compiled at", new DateTime(2000, 1, 1).AddDays(mainAssembly.Version.Build).AddSeconds(mainAssembly.Version.MinorRevision * 2).ToString(CultureInfo.CurrentCulture), true);
-
-            builder.AddField("Accent Colour", $"#{Program.AccentColour.RawValue.ToString("X2")}", false);
+            builder.AddField("Compiled at", Tools.GetAssemblyDate(mainAssembly).ToString(), true);
+            builder.AddField("Accent Colour", $"#{Program.AccentColour.RawValue.ToString("X6")}", false);
 
             builder.AddField("Guilds", ctx.Client.Guilds.Count.ToString(), true);
             builder.AddField("Total Channels", (ctx.Client.PrivateChannels.Count + ctx.Client.Guilds.SelectMany(g => g.Channels).Count()).ToString(), true);
@@ -453,7 +461,7 @@ namespace WamBotRewrite.Commands
                         builder.AddField("Aliases", string.Join(", ", command.Aliases), true);
                         if (command.Usage != null)
                         {
-                            builder.AddField("Usage", $"```cs\r\n{Program.Config.Prefix}{command.Aliases.First()} {command.Usage}\r\n```");
+                            builder.AddField("Usage", $"```cs\r\n{Program.Config.Bot.Prefix}{command.Aliases.First()} {command.Usage}\r\n```");
                         }
                     }
                 }
@@ -494,7 +502,7 @@ namespace WamBotRewrite.Commands
             {
                 builder = ctx.GetEmbedBuilder("Help");
                 builder.AddField("Command not found.", $"That command doesn't seem to exist, or you don't have permission to run it! " +
-                    $"Run `{Program.Config.Prefix}help` for a list of all commands!");
+                    $"Run `{Program.Config.Bot.Prefix}help` for a list of all commands!");
 
                 if (name != null)
                 {
@@ -519,8 +527,8 @@ namespace WamBotRewrite.Commands
             }
 
             builder
-                .WithFooter($"{Program.Config.MemeLines[_random.Next(Program.Config.MemeLines.Count())]} - " +
-                    $"My current prefix is {Program.Config.Prefix} (duh)", Program.Application.Owner.GetAvatarUrl())
+                .WithFooter($"{Program.Config.Bot.MemeLines[_random.Next(Program.Config.Bot.MemeLines.Count())]} - " +
+                    $"My current prefix is {Program.Config.Bot.Prefix} (duh)", Program.Application.Owner.GetAvatarUrl())
                 .WithCurrentTimestamp();
             await ctx.ReplyAsync(emb: builder.Build());
         }

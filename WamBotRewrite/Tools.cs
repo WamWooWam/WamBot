@@ -74,12 +74,12 @@ namespace WamBotRewrite
             return go;
         }
 
-        public static async Task<T> GetOrCreateAsync<T>(this DbSet<T> db, DbContext ctx, object key, Func<T> createPrecidate) where T : class
+        public static async Task<T> GetOrCreateAsync<T>(this DbSet<T> db, DbContext ctx, object key, IFactory<T> factory) where T : class
         {
             T value = await db.FindAsync(key);
             if (value == null)
             {
-                value = createPrecidate();
+                value = await factory.CreateAsync(key);
                 await db.AddAsync(value);
                 await ctx.SaveChangesAsync();
             }
@@ -89,12 +89,12 @@ namespace WamBotRewrite
             return value;
         }
 
-        public static T GetOrCreate<T>(this DbSet<T> db, DbContext ctx, object key, Func<T> createPrecidate) where T : class
+        public static T GetOrCreate<T>(this DbSet<T> db, DbContext ctx, object key, IFactory<T> factory) where T : class
         {
             T value = db.Find(key);
             if (value == null)
             {
-                value = createPrecidate();
+                value = factory.Create(key);
                 db.Add(value);
                 ctx.SaveChanges();
             }
@@ -280,6 +280,11 @@ namespace WamBotRewrite
             return HappinessLevel.Indifferent;
         }
 
+        internal static DateTime GetAssemblyDate(AssemblyName mainAssembly)
+        {
+            return new DateTime(2000, 1, 1).AddDays(mainAssembly.Version.Build).AddSeconds(mainAssembly.Version.MinorRevision * 2);
+        }
+
         internal static RequestTelemetry GetRequestTelemetry(IUser author, IMessageChannel channel, CommandRunner command, DateTimeOffset start, string code, bool success)
         {
             RequestTelemetry tel = new RequestTelemetry(command?.GetType().Name ?? "N/A", start, DateTimeOffset.Now - start, code, success);
@@ -299,11 +304,9 @@ namespace WamBotRewrite
             {
                 await channel.SendMessageAsync("Welcome to WamBot!");
                 await channel.SendMessageAsync("Thank you for adding WamBot to your server! Here's a few quick tips to get you started.");
-                await channel.SendMessageAsync($"Use `{Program.Config.Prefix}help` for a list of available commands. To get info on when commands are added or removed, set an announements channel with `{Program.Config.Prefix}announce`.");
+                await channel.SendMessageAsync($"Use `{Program.Config.Bot.Prefix}help` for a list of available commands. To get info on when commands are added or removed, set an announements channel with `{Program.Config.Bot.Prefix}announce`.");
                 await channel.SendMessageAsync($"For more information, visit http://wamwoowam.co.uk/wambot/.");
             }
-
-            Program.Config.SeenGuilds.Add(arg.Id);
         }
 
         internal static ISocketMessageChannel GetFirstChannel(SocketGuild arg)

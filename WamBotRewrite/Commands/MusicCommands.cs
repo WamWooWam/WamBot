@@ -51,7 +51,7 @@ namespace WamBotRewrite.Commands
 
                         await ctx.ReplyAsync($"Connected to {guildUser.VoiceChannel.Name}!");
 
-                        var data = await ctx.DbContext.Channels.GetOrCreateAsync(ctx.DbContext, (long)guildUser.VoiceChannel.Id, () => new Channel(guildUser.VoiceChannel));
+                        var data = await ctx.DbContext.Channels.GetOrCreateAsync(ctx.DbContext, (long)guildUser.VoiceChannel.Id, ChannelFactory.Instance);
                         data.Connections += 1;
                         await ctx.DbContext.SaveChangesAsync();
 
@@ -571,6 +571,8 @@ namespace WamBotRewrite.Commands
         #region Tools
         private static async Task MusicPlayLoop(IMessageChannel channel, ConnectionModel connection)
         {
+            Process alsa = null;
+
             try
             {
                 AudioStream stream = connection.Connection.CreatePCMStream(AudioApplication.Music);
@@ -602,6 +604,11 @@ namespace WamBotRewrite.Commands
                                     await connection.Connection.SetSpeakingAsync(true);
                                     connection.Start = DateTime.Now;
 
+                                    if (Environment.OSVersion.Platform == PlatformID.Unix)
+                                    {
+                                        alsa = Process.Start(new ProcessStartInfo("aplay", "-f S16_LE -r 48000 -c 2") { RedirectStandardInput = true, RedirectStandardOutput = false });
+                                    }
+
                                     while ((br = waveProvider.Read(buff, 0, buff.Length)) > 0)
                                     {
                                         connection.Token.ThrowIfCancellationRequested();
@@ -619,7 +626,8 @@ namespace WamBotRewrite.Commands
                                             }
                                         }
 
-                                        await stream.WriteAsync(buff, 0, 3840, connection.Token);
+                                        await stream.WriteAsync(buff, 0, br, connection.Token);
+                                        await alsa?.StandardInput.BaseStream.WriteAsync(buff, 0, br, connection.Token);
                                         //connection.RecordBuffer.AddSamples(buff, 0, buff.Length);
                                     }
 
@@ -652,6 +660,10 @@ namespace WamBotRewrite.Commands
                     throw;
                 }
             }
+            finally
+            {
+                alsa?.Kill();
+            }
         }
 
         private static async Task<BetterWaveStream> GetAudioStreamAsync(ConnectionModel c, SongModel m, MemoryStream str)
@@ -677,13 +689,13 @@ namespace WamBotRewrite.Commands
             //}
             //else
             //{
-            string args = $@"-i ""{m.FilePath}"" {(m.AdditionalTracks.Any() ? string.Concat(m.AdditionalTracks.Select(t => $@"-i ""{t}"" ")) + $"-filter_complex amerge=inputs={m.AdditionalTracks.Count + 1}" : "")} -ac 2 -f s16le -ar 48000  pipe:1";
+            string args = $@"-i ""{m.FilePath}"" {(m.AdditionalTracks.Any() ? string.Concat(m.AdditionalTracks.Select(t => $@"-i ""{t}"" ")) + $"-filter_complex amerge=inputs={m.AdditionalTracks.Count + 1}" : "")} -ac 2 -f s16le -ar 48000 pipe:1";
 
             var psi = new ProcessStartInfo("ffprobe", $"-v error -sexagesimal -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{m.FilePath}\"");
             string s = await psi.RunAndGetStdoutAsync();
             c.Total = TimeSpan.Parse(s.Trim());
 
-            Program.LogMessage("MUSIC", args).GetAwaiter().GetResult();
+            await Program.LogMessage("MUSIC", args);
 
             psi = new ProcessStartInfo
             {

@@ -28,7 +28,7 @@ namespace WamBotRewrite.Data
 
         [Key]
         public long ChannelId { get; set; }
-        
+
         public long GuildId { get; set; }
         public Guild Guild { get; set; }
 
@@ -36,5 +36,21 @@ namespace WamBotRewrite.Data
 
         public int MessagesSent { get; set; }
         public int Connections { get; set; }
+    }
+
+    public class ChannelFactory : IFactory<Channel>
+    {
+        public static ChannelFactory Instance { get; private set; } = new ChannelFactory();
+
+        public Channel Create(object key)
+        {
+            var channel = Program.Client.GetChannel((ulong)key);
+            return new Channel((IGuildChannel)channel);
+        }
+
+        public Task<Channel> CreateAsync(object key)
+        {
+            return Task.FromResult(Create(key));
+        }
     }
 }

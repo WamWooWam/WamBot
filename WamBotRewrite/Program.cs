@@ -32,6 +32,10 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Transforms;
 using SixLabors.ImageSharp.PixelFormats;
+using Newtonsoft.Json.Schema.Generation;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Schema;
+using System.Net;
 
 namespace WamBotRewrite
 {
@@ -50,13 +54,18 @@ namespace WamBotRewrite
         internal static Random Random => _random;
         internal static TelemetryClient TelemetryClient => _telemetryClient;
         internal static Color AccentColour { get; private set; }
+        internal static JSchemaGenerator SchemaGenerator => _schemaGenerator;
+        internal static string BaseDir => _baseDir;
 
+        static JSchemaGenerator _schemaGenerator = new JSchemaGenerator();
         static List<ulong> _processedMessageIds = new List<ulong>();
         static DiscordSocketClient _client;
         static DiscordRestClient _restClient;
         static TelemetryClient _telemetryClient;
         static Config _config;
         static Random _random = new Random();
+
+        static string _baseDir;
 
 #pragma warning disable CS4014 // Sometimes this is intended behaviour
 
@@ -86,10 +95,22 @@ namespace WamBotRewrite
                     await LogMessage("ARGUMENTS", $"{{\"{arg.Key}\", \"{arg.Value}\"}}");
                 }
 
+                if (!args.ContainsKey("baseDir"))
+                {
+                    args["baseDir"] = Directory.GetCurrentDirectory();
+                }
+
+                _baseDir = args["baseDir"];
+
                 if (args.TryGetValue("type", out string processType))
                 {
                     if (processType == "bot")
                     {
+                        await NormalMain();
+                    }
+                    else if (processType == "daemon")
+                    {
+                        await LogMessage("STARTUP", "Running as daemon.");
                         await NormalMain();
                     }
                     else if (processType == "command")
@@ -123,7 +144,7 @@ namespace WamBotRewrite
                                 });
                                 _restClient.Log += DiscordClient_Log;
 
-                                _restClient.LoginAsync(TokenType.Bot, _config.Token);
+                                _restClient.LoginAsync(TokenType.Bot, _config.Bot.Token);
 
                                 if (requiresDiscord)
                                 {
@@ -158,6 +179,7 @@ namespace WamBotRewrite
         }
 
 #pragma warning restore CS4014
+        internal static int _length = 12;
 
         internal static async Task LogMessage(string source, string text)
         {
@@ -167,7 +189,9 @@ namespace WamBotRewrite
                 ((MainWindow)App.Current.MainWindow).BotLog.AppendText($"[{DateTime.Now}][{source}]: {text}\r\n");
             });
 #else
-            source = (source.Truncate(12) + (source.Length < 12 ? string.Concat(Enumerable.Repeat(" ", 12 - source.Length)) : "")).ToUpperInvariant();
+            _length = Math.Min(Math.Max(_length, source.Length), 16);
+
+            source = (source.Truncate(_length) + (source.Length < _length ? string.Concat(Enumerable.Repeat(" ", _length - source.Length)) : "")).ToUpperInvariant();
 
             foreach (string str in text.Split("\n"))
             {
@@ -176,41 +200,35 @@ namespace WamBotRewrite
 #endif
         }
 
-        internal static async Task LogMessage(IMessage message, string text)
-        {
-            await LogMessage(message.Channel is IGuildChannel gc ? gc.Guild.Name : "#" + message.Channel.Name, text);
-        }
+        internal static async Task LogMessage(IMessage message, string text) => await LogMessage(message.Channel is IGuildChannel gc ? gc.Guild.Name : "#" + message.Channel.Name, text);
 
         internal static async Task LogMessage(CommandContext ctx, string text) => await LogMessage($"{ctx.Command.Name} - {ctx.Channel.Name}", text);
 
-        private static void RunDefaultBotProcess()
-        {
-            Process process = new Process
-            {
-                StartInfo = new ProcessStartInfo(Assembly.GetEntryAssembly().Location)
-                {
-                    WorkingDirectory = Directory.GetCurrentDirectory(),
-                    UseShellExecute = false,
-                    Arguments = $@"--type=bot"
-                }
-            };
-
-            process.Start();
-            process.WaitForExit();
-        }
-
         internal static async Task NormalMain()
         {
-            if (File.Exists("config.json"))
+            string path = Path.Combine(_baseDir, "config.json");
+            if (File.Exists(path))
             {
                 try
                 {
-                    string str = File.ReadAllText("config.json");
-                    _config = JsonConvert.DeserializeObject<Config>(str);
+                    string str = File.ReadAllText(path);
+                    var obj = JToken.Parse(str);
 
-                    if (_config == null)
+                    var oldConfigSchema = _schemaGenerator.Generate(typeof(OldConfig));
+                    if (obj.IsValid(oldConfigSchema))
                     {
-                        Console.WriteLine("An error has been detected with your configuration file that needs correcting. Please repair your configuration file before re-running WamBot.");
+                        await LogMessage("STARTUP", "Upgrading config...");
+
+                        _config = new Config(obj.ToObject<OldConfig>());
+                        File.WriteAllText(path, JsonConvert.SerializeObject(_config, Formatting.Indented));
+
+                        await LogMessage("STARTUP", "Config upgrade complete!");
+                    }
+                    else
+                    {
+                        await LogMessage("STARTUP", "Loading config...");
+                        _config = JsonConvert.DeserializeObject<Config>(File.ReadAllText(path));
+                        await LogMessage("STARTUP", "Config loaded!");
                     }
 
                 }
@@ -229,25 +247,26 @@ namespace WamBotRewrite
 
                 Console.WriteLine(" -- Tokens -- ");
                 Console.Write(" Discord Bot Token: ");
-                _config.Token = Tools.ProtectedReadLine();
+                _config.Bot.Token = Tools.ProtectedReadLine();
                 Console.Write(" Application Insights Token (leave empty to disable): ");
                 string insights = Tools.ProtectedReadLine();
                 if (Guid.TryParse(insights, out var guid))
                 {
-                    _config.ApplicationInsightsKey = guid;
+                    _config.Telemetry.Enabled = true;
+                    _config.Telemetry.ApplicationInsightsToken = guid;
                 }
 
                 Console.WriteLine(" -- Settings -- ");
                 Console.Write(" Bot Prefix: ");
-                _config.Prefix = Console.ReadLine();
+                _config.Bot.Prefix = Console.ReadLine();
 
                 Console.WriteLine();
                 Console.WriteLine(" And we're done here! Let's get going!");
 
-                File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
+                File.WriteAllText(path, JsonConvert.SerializeObject(_config));
             }
 
-            foreach (string statusString in Config.StatusMessages)
+            foreach (string statusString in Config.Bot.StatusMessages)
             {
                 if (Enum.TryParse<ActivityType>(statusString.First().ToString(), out var s))
                 {
@@ -276,7 +295,7 @@ namespace WamBotRewrite
                     });
                     _restClient.Log += DiscordClient_Log;
 
-                    await _restClient.LoginAsync(TokenType.Bot, _config.Token);
+                    await _restClient.LoginAsync(TokenType.Bot, _config.Bot.Token);
                     await _client.StartAsync();
 
                     connected = true;
@@ -290,9 +309,9 @@ namespace WamBotRewrite
             }
 
             _telemetryClient?.Flush();
-            if (_config.ApplicationInsightsKey != Guid.Empty)
+            if (_config.Telemetry.Enabled)
             {
-                TelemetryConfiguration.Active.InstrumentationKey = _config.ApplicationInsightsKey.ToString();
+                TelemetryConfiguration.Active.InstrumentationKey = _config.Telemetry.ApplicationInsightsToken.ToString();
                 _telemetryClient = new TelemetryClient();
                 _telemetryClient.TrackEvent(new EventTelemetry("Startup"));
 
@@ -304,9 +323,9 @@ namespace WamBotRewrite
                 TelemetryConfiguration.Active.DisableTelemetry = true;
             }
 
-            if (_config.TwitterCredentials != null)
+            if (_config.Twitter.Enabled)
             {
-                Tweetinvi.Auth.SetCredentials(Config.TwitterCredentials);
+                Tweetinvi.Auth.SetCredentials(Config.Twitter);
                 await LogMessage("STARTUP", "Twitter credentials configured!");
             }
             else
@@ -353,16 +372,30 @@ namespace WamBotRewrite
                 await ctx.Database.MigrateAsync();
             }
 
+            FileSystemWatcher watcher = new FileSystemWatcher(Directory.GetCurrentDirectory())
+            {
+                NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName,
+                Filter = "*.json",
+
+            };
+
+            watcher.Changed += async (o, e) =>
+            {
+                if (Path.GetFileName(e.FullPath) == "config.json")
+                {
+                    await LogMessage("CONFIG", "config.json changed! Reloading...");
+                    _config = JsonConvert.DeserializeObject<Config>(File.ReadAllText(path));
+                }
+            };
+
+            watcher.EnableRaisingEvents = true;
+
             var saveTimer = Tools.CreateTimer(TimeSpan.FromMinutes(5), (s, e) =>
             {
-                File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
-                File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovCommands.MarkovList));
+                File.WriteAllText(Path.Combine(_baseDir, "markov.json"), JsonConvert.SerializeObject(MarkovGenerator.MarkovList));
             });
 
             var happinessTickdown = Tools.CreateTimer(TimeSpan.FromHours(12), HappinessTickdown);
-
-
-            File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
 
             await Task.Delay(-1);
         }
@@ -373,9 +406,14 @@ namespace WamBotRewrite
 
             await LogMessage("STARTUP", "Configuring accent colour...");
 
-            using (var str = await CommandCategory.HttpClient.GetStreamAsync(_client.CurrentUser.GetAvatarUrl()))
+            string requestUri = (await _restClient.GetUserAsync(_restClient.CurrentUser.Id)).GetAvatarUrl(ImageFormat.Png);
+            await LogMessage("STARTUP", $"Using avatar URL {requestUri}");
+
+            using (var str = await CommandCategory.HttpClient.GetStreamAsync(requestUri))
             using (var img = Image.Load(str))
             {
+                await LogMessage("STARTUP", "Retrieved avatar...");
+
                 Rgba32[] buffer = new Rgba32[1];
                 img.Mutate(m => m.Resize(1, 1));
                 img.SavePixelData(buffer);
@@ -396,43 +434,22 @@ namespace WamBotRewrite
         {
             await LogMessage("GUILD", $"Guild {arg.Name} is now available.");
 
-            if (_config.DisallowedGuilds.Contains(arg.Id))
-            {
-                await LogMessage("GUILD", $"Leaving disallowed guild {arg.Name}.");
+            //if (_config.DisallowedGuilds.Contains(arg.Id))
+            //{
+            //    await LogMessage("GUILD", $"Leaving disallowed guild {arg.Name}.");
 
-                var c = Tools.GetFirstChannel(arg);
-                await c.SendMessageAsync(":middle_finger:");
-                await arg.LeaveAsync();
-            }
-            else if (!_config.SeenGuilds.Contains(arg.Id))
-            {
-                await Tools.SendWelcomeMessage(arg);
-                File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
-            }
-
+            //    var c = Tools.GetFirstChannel(arg);
+            //    await c.SendMessageAsync(":middle_finger:");
+            //    await arg.LeaveAsync();
+            //}
             using (WamBotContext ctx = new WamBotContext())
             {
-                await LogMessage("DATABASE", $"Ensuring guild for {arg}");
-                var g = await ctx.Guilds.GetOrCreateAsync(ctx, (long)arg.Id, () => new Guild(arg));
-                g.Name = arg.Name;
+                var g = await ctx.Guilds.FindAsync((long)arg.Id);
 
-                //await arg.DownloadUsersAsync();
-                foreach (var user in arg.Users)
+                if (g == null)
                 {
-                    await LogMessage("DATABASE", $"Ensuring user for {user}");
-                    var u = await ctx.Users.GetOrCreateAsync(ctx, (long)user.Id, () => new User(user));
-
-                    u.Username = user.Username;
-                    u.Discriminator = user.Discriminator;
-                }
-
-                foreach (var channel in arg.Channels.Where(c => !(c is ICategoryChannel)))
-                {
-                    await LogMessage("DATABASE", $"Ensuring channel for {channel}");
-                    var c = await ctx.Channels.GetOrCreateAsync(ctx, (long)channel.Id, () => new Channel(channel));
-
-                    c.Name = channel.Name;
-                    c.Type = channel is ITextChannel ? ChannelType.Text : ChannelType.Voice;
+                    await Tools.SendWelcomeMessage(arg);
+                    ctx.Guilds.Add(new Guild(arg));
                 }
 
                 await ctx.SaveChangesAsync();
@@ -448,19 +465,25 @@ namespace WamBotRewrite
         {
             await LogMessage("GUILD", $"Joined guild {arg.Name}!");
 
-            if (_config.DisallowedGuilds.Contains(arg.Id))
-            {
-                await LogMessage("GUILD", $"Leaving disallowed guild {arg.Name}.");
+            //if (_config.DisallowedGuilds.Contains(arg.Id))
+            //{
+            //    await LogMessage("GUILD", $"Leaving disallowed guild {arg.Name}.");
 
-                var c = Tools.GetFirstChannel(arg);
-                await c.SendMessageAsync(":middle_finger:");
-                await arg.LeaveAsync();
-            }
-            else if (!_config.SeenGuilds.Contains(arg.Id))
-            {
-                await Tools.SendWelcomeMessage(arg);
+            //    var c = Tools.GetFirstChannel(arg);
+            //    await c.SendMessageAsync(":middle_finger:");
+            //    await arg.LeaveAsync();
+            //}
 
-                File.WriteAllText("config.json", JsonConvert.SerializeObject(_config));
+            using (WamBotContext ctx = new WamBotContext())
+            {
+                var g = await ctx.Guilds.FindAsync((long)arg.Id);
+                if (g == null)
+                {
+                    await Tools.SendWelcomeMessage(arg);
+                    ctx.Guilds.Add(new Guild(arg));
+                }
+
+                await ctx.SaveChangesAsync();
             }
         }
 
@@ -518,7 +541,7 @@ namespace WamBotRewrite
             });
 
             _client.Log += DiscordClient_Log;
-            await _client.LoginAsync(TokenType.Bot, _config.Token);
+            await _client.LoginAsync(TokenType.Bot, _config.Bot.Token);
         }
 
         private static async Task ProcessComand_MessageRecieve(SocketMessage arg)
@@ -533,10 +556,10 @@ namespace WamBotRewrite
                 DateTimeOffset startTime = DateTimeOffset.Now;
                 if (!string.IsNullOrWhiteSpace(message?.Content) && !author.IsBot && !author.IsCurrent() && !_processedMessageIds.Contains(message.Id))
                 {
-                    if (message.Content.ToLower().StartsWith(_config.Prefix.ToLower()))
+                    if (message.Content.ToLower().StartsWith(_config.Bot.Prefix.ToLower()))
                     {
                         await LogMessage(message, $"Found command prefix, parsing...");
-                        IEnumerable<string> commandSegments = Strings.SplitCommandLine(message.Content.Substring(_config.Prefix.Length));
+                        IEnumerable<string> commandSegments = Strings.SplitCommandLine(message.Content.Substring(_config.Bot.Prefix.Length));
 
                         if (commandSegments.Any())
                         {
@@ -602,7 +625,7 @@ namespace WamBotRewrite
             {
                 using (WamBotContext db = new WamBotContext())
                 {
-                    var u = await db.Users.GetOrCreateAsync(db, (long)r.Author.Id, () => new User(r.Author));
+                    var u = await db.Users.GetOrCreateAsync(db, (long)r.Author.Id, UserFactory.Instance);
                     if (!u.Ignored)
                     {
                         try
@@ -628,8 +651,8 @@ namespace WamBotRewrite
 
                                             if (r.Channel is IGuildChannel gc)
                                             {
-                                                context.GuildData = await db.Guilds.GetOrCreateAsync(db, (long)gc.GuildId, () => new Guild(gc.Guild));
-                                                context.ChannelData = await db.Channels.GetOrCreateAsync(db, (long)r.Channel.Id, () => new Channel(gc));
+                                                context.GuildData = await db.Guilds.GetOrCreateAsync(db, (long)gc.GuildId, GuildFactory.Instance);
+                                                context.ChannelData = await db.Channels.GetOrCreateAsync(db, (long)r.Channel.Id, ChannelFactory.Instance);
                                             }
 
                                             string[] cmdsegarr = r.CommandSegments.ToArray();

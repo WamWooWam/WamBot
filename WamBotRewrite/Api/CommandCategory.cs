@@ -10,9 +10,9 @@ namespace WamBotRewrite.Api
 {
     public abstract class CommandCategory
     {
-        private static Lazy<HttpClient> _httpClient = new Lazy<HttpClient>(true);
+        private static HttpClient _httpClient = new HttpClient();
 
-        public static HttpClient HttpClient => _httpClient.Value;
+        public static HttpClient HttpClient => _httpClient;
 
         public abstract string Name { get; }
         public abstract string Description { get; }

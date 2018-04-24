@@ -13,7 +13,6 @@ using Sodium;
 
 namespace WamBotRewrite.Commands
 {
-    [RunOutOfProcess]
     class CryptoCommands : CommandCategory
     {
         const string re = "That's a few too many repititions now don't'cha think?!";
@@ -35,40 +34,54 @@ namespace WamBotRewrite.Commands
 
         public override string Description => "Makes me do crypto gubbins!";
 
+        [RunOutOfProcess]
         [Command("GUID", "Generates a new GUID/UUID.", new[] { "guid", "uuid" })]
         public async Task GetGuid(CommandContext ctx)
         {
             await ctx.ReplyAsync(Guid.NewGuid().ToString());
         }
 
+        [RunOutOfProcess]
         [Command("MD5", "Generates an MD5 hash of a string.", new[] { "md5" })]
         public async Task GetMD5(CommandContext ctx, string str, [Range(0, mr, ErrorMessage = re)]int repetitions = 1)
         {
             await RunCryptoCommand(ctx, "MD5", _md5.Value, str, repetitions);
         }
 
+        [RunOutOfProcess]
         [Command("SHA-1", "Generates an SHA-1 hash of a string.", new[] { "sha1" })]
         public async Task GetSHA1(CommandContext ctx, string str, [Range(0, mr, ErrorMessage = re)]int repetitions = 1)
         {
             await RunCryptoCommand(ctx, "SHA-1", _sha1.Value, str, repetitions);
         }
 
+        [RunOutOfProcess]
         [Command("SHA-256", "Generates an SHA-256 hash of a string.", new[] { "sha2", "sha256" })]
         public async Task GetSHA256(CommandContext ctx, string str, [Range(0, mr, ErrorMessage = re)]int repetitions = 1)
         {
             await RunCryptoCommand(ctx, "SHA-256", _sha256.Value, str, repetitions);
         }
 
+        [RunOutOfProcess]
         [Command("SHA-384", "Generates an SHA-384 hash of a string.", new[] { "sha364" })]
         public async Task GetSHA384(CommandContext ctx, string str, [Range(0, mr, ErrorMessage = re)]int repetitions = 1)
         {
             await RunCryptoCommand(ctx, "SHA-384", _sha384.Value, str, repetitions);
         }
 
+        [RunOutOfProcess]
         [Command("SHA-512", "Generates an SHA-512 hash of a string.", new[] { "sha512" })]
         public async Task GetSHA512(CommandContext ctx, string str, [Range(0, mr, ErrorMessage = re)]int repetitions = 1)
         {
             await RunCryptoCommand(ctx, "SHA-512", _sha512.Value, str, repetitions);
+        }
+
+        [Command("Salt", "Generates a random sequence of bytes.", new[] { "salt" })]
+        public async Task GetSalt(CommandContext ctx, [Range(8, 512)]int length = 16)
+        {
+            var builder = ctx.GetEmbedBuilder("Salt");
+            builder.AddField("Key", $"```{Convert.ToBase64String(SodiumCore.GetRandomBytes(length))}```");
+            await ctx.ReplyAsync(emb: builder.Build());
         }
 
         [Command("AES Encrypt", "Encrypts a string using AES with a specified key.", new[] { "aesenc", "aes-encrypt" })]

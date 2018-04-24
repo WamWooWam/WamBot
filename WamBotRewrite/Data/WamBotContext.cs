@@ -16,7 +16,7 @@ namespace WamBotRewrite.Data
         public DbSet<Transaction> Transactions { get; set; }
 
         [NotMapped]
-        public Lazy<User> BotUser => new Lazy<User>(() => Users.Find((long)Program.Client.CurrentUser.Id));
+        public Lazy<User> BotUser => new Lazy<User>(() => Users.Find((long)Program.Client.CurrentUser.Id) ?? new User(Program.Client.CurrentUser) { Balance = int.MaxValue / 16 });
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,7 +38,7 @@ namespace WamBotRewrite.Data
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder
-                .UseNpgsql(Program.Config?.ConnectionString ?? "Server=localhost;Database=WamBot")
+                .UseNpgsql(Program.Config.Database?.ConnectionString ?? "Server=localhost;Database=WamBot")
                 .UseLoggerFactory(new UILoggerFactory());
         }
     }

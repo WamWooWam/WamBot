@@ -1,10 +1,7 @@
 ﻿using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using WamBotRewrite.Api;
 using System.ComponentModel.DataAnnotations;
@@ -15,7 +12,6 @@ using Discord;
 using System.Reflection;
 
 using Path = System.IO.Path;
-using File = System.IO.File;
 using Image = SixLabors.ImageSharp.Image;
 using System.IO;
 
@@ -86,7 +82,7 @@ namespace WamBotRewrite.Commands
         {
             clippyTop = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", "clippytop.png"));
             clippyBottom = Image.Load(Path.Combine(Directory.GetCurrentDirectory(), "Assets", "clippybottom.png"));
-            font = Fonts.Find("Comic Sans MS").CreateFont(14);
+            font = Fonts.Find("Microsoft Sans Serif").CreateFont(14);
         }
 
         public override string Name => "Image";
@@ -320,7 +316,8 @@ namespace WamBotRewrite.Commands
                 IEnumerable<string> txtBase = args;
                 if (characters.Contains(args[0].ToLowerInvariant()))
                 {
-                    baseImage = ChangeImage(ref txtBase);
+                    baseImage = ChangeImage(txtBase);
+                    txtBase = txtBase.Skip(1);
                 }
 
                 string txt = string.Join(" ", txtBase);
@@ -328,12 +325,14 @@ namespace WamBotRewrite.Commands
                 RectangleF size = TextMeasurer.MeasureBounds(txt, new RendererOptions(font) { WrappingWidth = clippyTop.Width - 20 });
                 using (Image<Rgba32> textImage = new Image<Rgba32>(clippyTop.Width, (int)Math.Ceiling(size.Height + 5)))
                 {
+                    // Generate image containing text
                     textImage.Mutate(m => m
                         .Fill(colour)
                         .DrawLines(Rgba32.Black, 2, new PointF[] { new PointF(0, 0), new PointF(0, textImage.Height) })
                         .DrawLines(Rgba32.Black, 2, new PointF[] { new PointF(textImage.Width, 0), new PointF(textImage.Width, textImage.Height) })
                         .DrawText(new TextGraphicsOptions() { WrapTextWidth = clippyTop.Width - 20 }, txt, font, Rgba32.Black, new PointF(10, 0)));
 
+                    // Generate image large enough to hold character and speach bubble
                     Image<Rgba32> returnImage = new Image<Rgba32>(clippyTop.Width, clippyTop.Height + textImage.Height + clippyBottom.Height + baseImage.Height);
 
                     returnImage.Mutate(m => m
@@ -352,10 +351,9 @@ namespace WamBotRewrite.Commands
             }
         }
 
-        private static Image<Rgba32> ChangeImage(ref IEnumerable<string> txtBase)
+        private static Image<Rgba32> ChangeImage(IEnumerable<string> txtBase)
         {
             Image<Rgba32> baseImage = Image.Load(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Assets", $"{txtBase.ElementAt(0)}.png"));
-            txtBase = txtBase.Skip(1);
             return baseImage;
         }
     }

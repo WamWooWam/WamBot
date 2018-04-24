@@ -20,66 +20,53 @@ namespace WamBotRewrite.Commands
     class MarkovCommands : CommandCategory
     {
         WamBotContext markovContext = new WamBotContext();
-
-        internal static Dictionary<ulong, Markov<string>> Markovs { get; private set; } = new Dictionary<ulong, Markov<string>>();
-        internal static Dictionary<ulong, List<string>> MarkovList { get; private set; } = new Dictionary<ulong, List<string>>();
+        IStringGenerator _stringGenerator = new MarkovGenerator();
 
         public override string Name => "Markov Chain";
 
-        public override string Description => "Training Markov chains off discord chatter? What could possibly go wrong?\n\n" +
-            "If your markov chain randomly vanishes, there was more than likely an issue while saving chains before exit, something only done because people wouldn't shut up about \"datamining\", if there's anyone to blame, it's them.";
+        public override string Description => "Training Markov chains off discord chatter? What could possibly go wrong?";
+
+        const double quater = (1d / 4d);
+        const double twoquaters = quater * 2;
+        const double threequaters = quater * 3;
 
         public MarkovCommands()
         {
-            if (File.Exists("markov.json"))
+            if (Program.Config.Twitter.MarkovTweets)
             {
-                MarkovList = JsonConvert.DeserializeObject<Dictionary<ulong, List<string>>>(File.ReadAllText("markov.json"));
-                //File.Delete("markov.json");
-
-                foreach (var pair in MarkovList)
+                var tweetTimer = Tools.CreateTimer(TimeSpan.FromMinutes(60), async (o, e) =>
                 {
-                    Markov<string> markov = new Markov<string>(".");
-                    markov.Train(pair.Value, 2);
-                    Markovs[pair.Key] = markov;
-                }
-            }
-
-#if RELEASE
-            var tweetTimer = Tools.CreateTimer(TimeSpan.FromMinutes(60), async (o, e) =>
-            {
-                using (WamBotContext ctx = new WamBotContext())
-                {
-                    bool tweeted = false;
-                    while (!tweeted)
+                    using (WamBotContext ctx = new WamBotContext())
                     {
-                        var m = Markovs.ElementAt(Program.Random.Next(Markovs.Count));
-                        var u = ctx.Users.Find((long)m.Key);
-
-                        await Program.LogMessage("MARKOV", $"Attempting to tweet with markov of {u?.UserId}");
-
-                        if (u?.MarkovTwitterEnabled == true)
+                        bool tweeted = false;
+                        while (!tweeted)
                         {
-                            var twitter = u.TwitterId != 0 ? TwitterUser.GetUserFromId(u.TwitterId) : null;
-                            var discord = Program.Client.GetUser((ulong)u.UserId);
-                            var mention = twitter != null ? $"@{twitter.ScreenName}" : $"{discord.Username}#{discord.Discriminator}";
-                            string content = m.Value.Generate(Program.Random.Next(10, 30), " ", true);
-                            if (DateTime.Now.IsAprilFools())
+                            var u = ctx.Users.ElementAt(Program.Random.Next(0, ctx.Users.Count()));
+                            string content = _stringGenerator.Generate(u, Program.Random.Next(10, 30));
+
+                            await Program.LogMessage("MARKOV", $"Attempting to tweet with markov of {u?.UserId}");
+                            if (u?.MarkovTwitterEnabled == true && !string.IsNullOrWhiteSpace(content))
                             {
-                                content = content.Replace("n", "ny").Replace("r", "w");
+                                var twitter = u.TwitterId != 0 ? TwitterUser.GetUserFromId(u.TwitterId) : null;
+                                var discord = Program.Client.GetUser((ulong)u.UserId);
+                                var mention = twitter != null ? $"@{twitter.ScreenName}" : $"{discord.Username}#{discord.Discriminator}";
+                                if (DateTime.Now.IsAprilFools())
+                                {
+                                    content = content.Replace("n", "ny").Replace("r", "w");
+                                }
+                                var output = $"\"{content}\" - {mention}";
+                                Tweet.PublishTweet(output);
+                                tweeted = true;
                             }
-                            var output = $"\"{content}\" - {mention}";
-                            Tweet.PublishTweet(output);
-                            tweeted = true;
-                        }
-                        else
-                        {
-                            continue;
+                            else
+                            {
+                                continue;
+                            }
                         }
                     }
-                }
-            });
-#endif
-            AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
+                });
+            }
+
             Program.Client.MessageReceived += Markov_MessageRecieved;
         }
 
@@ -202,79 +189,97 @@ namespace WamBotRewrite.Commands
         [Command("Markov Train", "Train your markov chain with a given string", new[] { "markov-train", "train" })]
         public async Task MarkovTrain(CommandContext ctx, params string[] strings)
         {
-            if (Markovs.TryGetValue(ctx.Author.Id, out var m))
+            try
             {
-                m.Train(strings.ToList(), 2);
-                MarkovList[ctx.Author.Id].AddRange(strings);
-
-                await ctx.ReplyAsync("Added to your markov chain!");
+                _stringGenerator.Train(ctx.UserData, strings);
+                await ctx.ReplyAsync("Trained!");
             }
-            else
+            catch
             {
-                Markov<string> markov = new Markov<string>(".");
-                markov.Train(strings.ToList(), 2);
-
-                var markovList = new List<string>();
-                markovList.AddRange(strings);
-
-                MarkovList[ctx.Author.Id] = markovList;
-                Markovs[ctx.Author.Id] = markov;
+                await ctx.ReplyAsync("Hey! Something went wrong there! Try again with more words.");
             }
         }
 
         [Command("Markov Clear", "Clears and resets your markov chain.", new[] { "markov-reset" })]
         public async Task MarkovClear(CommandContext ctx)
         {
-            if (Markovs.TryGetValue(ctx.Author.Id, out var m))
-            {
-                MarkovList[ctx.Author.Id].Clear();
-                Markovs[ctx.Author.Id] = new Markov<string>(".");
-                await ctx.ReplyAsync("Reset your markov chain!");
-            }
-            else
-            {
-                await ctx.ReplyAsync("You don't have a chain to reset!");
-            }
+            _stringGenerator.Reset(ctx.UserData);
+            await ctx.ReplyAsync("Reset!");
         }
 
         [Command("Markov", "Generates a string based on Markov chains", new[] { "markov", "mark" })]
         public async Task Markov(CommandContext ctx, [Range(1, 1000)] int length = 10, IUser user = null)
         {
-            if (Markovs.TryGetValue(user?.Id ?? ctx.Author.Id, out var markov))
+            var output = _stringGenerator.Generate(user != null ? await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, UserFactory.Instance) : ctx.UserData, length);
+
+
+            if (!string.IsNullOrWhiteSpace(output))
             {
-                var output = markov.Generate(length, " ", true);
-                string str = string.Join(" ", output);
-                await ctx.ReplyAsync($"\"{str}\"");
+                await ctx.ReplyAsync($"\"{output}\"");
             }
             else
             {
                 await ctx.ReplyAsync((((user?.Id ?? ctx.Author.Id) == ctx.Author.Id) ? "You don't" : "This user doesn't") + $" have a markov chain!\n" +
-                    $"Enable automatic markov training with `{Program.Config.Prefix}markov-in` or use `{Program.Config.Prefix}train` to add some training data!");
+                    $"Enable automatic markov training with `{Program.Config.Bot.Prefix}markov-in` or use `{Program.Config.Bot.Prefix}train` to add some training data!");
             }
         }
 
-        private void CurrentDomain_ProcessExit(object sender, EventArgs e)
+        [Command("Markov Arrow", "Generates a random meme arrow from a markov chain.", new[] { "arrow", ">" })]
+        public async Task Markov(CommandContext ctx, IUser user = null)
         {
-            File.WriteAllText("markov.json", JsonConvert.SerializeObject(MarkovList));
+            var output = _stringGenerator.Generate(user != null ? await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, UserFactory.Instance) : ctx.UserData, Program.Random.Next(1, 4));
+
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                var prefixes = new[] { "implying", "using", "mfw", "saying", "tfw" };
+                var suffixes = new[] { $"in {DateTime.Now.Year}", "in current year", "at all", "on discord", $"in {Program.Random.Next(DateTime.Now.Year + 10, DateTime.Now.Year + 1000)}" };
+
+                var suffix = suffixes[Program.Random.Next(0, suffixes.Length)];
+                var prefix = prefixes[Program.Random.Next(0, prefixes.Length)];
+                var rand = Program.Random.NextDouble();
+
+                if (rand < quater)
+                {
+                    await ctx.ReplyAsync($">{output}");
+                }
+                else if (rand > quater && rand < twoquaters)
+                {
+                    await ctx.ReplyAsync($">{prefix} {output}");
+                }
+                else if (rand > twoquaters && rand < threequaters)
+                {
+                    await ctx.ReplyAsync($">{prefix} {output} {suffix}");
+                }
+                else
+                {
+                    await ctx.ReplyAsync($">{output} {suffix}");
+                }
+            }
+            else
+            {
+                await ctx.ReplyAsync((((user?.Id ?? ctx.Author.Id) == ctx.Author.Id) ? "You don't" : "This user doesn't") + $" have a markov chain!\n" +
+                    $"Enable automatic markov training with `{Program.Config.Bot.Prefix}markov-in` or use `{Program.Config.Bot.Prefix}train` to add some training data!");
+            }
         }
+
 
         private Task Markov_MessageRecieved(Discord.WebSocket.SocketMessage arg)
         {
             lock (markovContext)
             {
-                if (!string.IsNullOrWhiteSpace(arg.Content) && !arg.Author.IsCurrent() && !arg.Content.ToLowerInvariant().Trim().StartsWith(Program.Config.Prefix))
+                if (!string.IsNullOrWhiteSpace(arg.Content) && !arg.Author.IsCurrent() && !arg.Content.ToLowerInvariant().Trim().StartsWith(Program.Config.Bot.Prefix))
                 {
                     var strings = arg.Content
                         .Split(c => char.IsSeparator(c) || char.IsWhiteSpace(c))
-                        .Where(s => s.Any() && !s.StartsWith(Program.Config.Prefix) && !char.IsSymbol(s.First()) && s.All(c => char.IsLetterOrDigit(c) || char.IsPunctuation(c)));
+                        .Where(s => s.Any() && !s.StartsWith(Program.Config.Bot.Prefix) && !char.IsSymbol(s.First()) && s.All(c => char.IsLetterOrDigit(c) || char.IsPunctuation(c)));
 
-                    User data = markovContext.Users.GetOrCreate(markovContext, (long)arg.Author.Id, () => new User(arg.Author));
+                    User data = markovContext.Users.GetOrCreate(markovContext, (long)arg.Author.Id, UserFactory.Instance);
                     Channel channel = null;
 
                     if (arg.Channel is IGuildChannel gc)
                     {
-                        markovContext.Guilds.GetOrCreate(markovContext, (long)gc.GuildId, () => new Guild(gc.Guild));
-                        channel = markovContext.Channels.GetOrCreate(markovContext, (long)gc.Id, () => new Channel(gc));
+                        markovContext.Guilds.GetOrCreate(markovContext, (long)gc.GuildId, GuildFactory.Instance);
+                        channel = markovContext.Channels.GetOrCreate(markovContext, (long)gc.Id, ChannelFactory.Instance);
                     }
 
                     if (strings.Count() > 2)
@@ -283,33 +288,17 @@ namespace WamBotRewrite.Commands
                         {
                             if (channel?.MarkovEnabled != false)
                             {
-                                if (Markovs.TryGetValue(arg.Author.Id, out Markov<string> m))
-                                {
-                                    m.Train(strings.ToList(), 2);
-                                    MarkovList[arg.Author.Id].AddRange(strings);
-                                }
-                                else
-                                {
-                                    Markov<string> markov = new Markov<string>(".");
-                                    markov.Train(strings.ToList(), 2);
-
-                                    var markovList = new List<string>();
-                                    markovList.AddRange(strings);
-
-                                    MarkovList[arg.Author.Id] = markovList;
-                                    Markovs[arg.Author.Id] = markov;
-                                }
-
-                                return Program.LogMessage("MARKOV", $"Added {JsonConvert.SerializeObject(strings)} to Markov for {arg.Author.Username}#{arg.Author.Discriminator}");
+                                _stringGenerator.Train(data, strings.ToArray());
+                                return Program.LogMessage("MARKOV", $"Trained with {JsonConvert.SerializeObject(strings)} for {arg.Author.Username}#{arg.Author.Discriminator}");
                             }
                             else
                             {
-                                return Program.LogMessage("MARKOV", $"Channel #{arg.Channel.Name} has automatic markov training disabled.");
+                                return Program.LogMessage("MARKOV", $"Channel #{arg.Channel.Name} has automatic training disabled.");
                             }
                         }
                         else
                         {
-                            return Program.LogMessage("MARKOV", $"User {arg.Author.Username}#{arg.Author.Discriminator} has automatic markov training disabled.");
+                            return Program.LogMessage("MARKOV", $"User {arg.Author.Username}#{arg.Author.Discriminator} has automatic training disabled.");
                         }
                     }
                 }

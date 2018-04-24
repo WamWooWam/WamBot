@@ -30,4 +30,20 @@ namespace WamBotRewrite.Data
 
         public List<Channel> Channels { get; set; }
     }
+
+    public class GuildFactory : IFactory<Guild>
+    {
+        public static GuildFactory Instance { get; private set; } = new GuildFactory();
+
+        public Guild Create(object key)
+        {
+            var guild = Program.Client.GetGuild((ulong)key);
+            return new Guild(guild);
+        }
+
+        public Task<Guild> CreateAsync(object key)
+        {
+            return Task.FromResult(Create(key));
+        }
+    }
 }

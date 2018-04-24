@@ -47,8 +47,7 @@ namespace WamBotRewrite.Api
             { typeof(void), "void" }
         };
 
-        private static JSchemaGenerator _schemaGenerator = new JSchemaGenerator();
-        private static JSchema _exceptionSchema = _schemaGenerator.Generate(typeof(Exception));
+        private static JSchema _exceptionSchema = Program.SchemaGenerator.Generate(typeof(Exception));
 
         internal MethodInfo _method;
         private CommandAttribute _commandAttribute;

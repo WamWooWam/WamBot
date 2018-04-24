@@ -25,6 +25,11 @@ namespace MarkovChains
         private Random r = new Random();
         /// <summary>The StopKey used by this instance</summary>
         private T StopKey = default(T);
+
+        internal void Train(object p, int v)
+        {
+            throw new NotImplementedException();
+        }
         #endregion
         #region Private support
         /// <summary>Holds details of a key and a possible sequence for it</summary>

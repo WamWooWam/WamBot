@@ -24,48 +24,48 @@ namespace WamBotRewrite.Commands
         {
             try
             {
-                Reddit r = new Reddit();
-                var s = await r.GetSubredditAsync(subName);
+                var reddit = new Reddit();
+                var sub = await reddit.GetSubredditAsync(subName);
 
-                var ps = await s.GetPosts(Subreddit.Sort.Hot, 200).ToList();
-                var p = ps.ElementAt(Program.Random.Next(0, ps.Count));
+                var posts = await sub.GetPosts(Subreddit.Sort.Hot, 200).ToList();
+                var post = posts.ElementAt(Program.Random.Next(0, posts.Count));
 
-                if (s.NSFW != true || ctx.Channel is IDMChannel || (ctx.Channel is ITextChannel c && c.IsNsfw))
+                if (sub.NSFW != true || ctx.Channel is IDMChannel || (ctx.Channel is ITextChannel c && c.IsNsfw))
                 {
-                    EmbedBuilder builder = new EmbedBuilder()
-                        .WithAuthor($"{p.Title} - /r/{subName}")
+                    var builder = new EmbedBuilder()
+                        .WithAuthor($"{post.Title} - /r/{subName}")
                         .WithColor(Program.AccentColour)
-                        .WithTimestamp(new DateTimeOffset(p.Created))
-                        .WithFooter($"By /u/{p.AuthorName}");
+                        .WithTimestamp(new DateTimeOffset(post.Created.ToUniversalTime()))
+                        .WithFooter($"By /u/{post.AuthorName}");
 
-                    builder.Author.Url = p.Shortlink.ToString();
+                    builder.Author.Url = post.Shortlink.ToString();
 
-                    if (!string.IsNullOrWhiteSpace(p.SelfText))
+                    if (!string.IsNullOrWhiteSpace(post.SelfText))
                     {
-                        builder.WithDescription(HttpUtility.HtmlDecode(p.SelfText));
+                        builder.WithDescription(HttpUtility.HtmlDecode(post.SelfText));
                     }
 
-                    if (p.Thumbnail != null && (p.Thumbnail.IsAbsoluteUri || p.Url.IsAbsoluteUri))
+                    if (post.Thumbnail != null && (post.Thumbnail.IsAbsoluteUri || post.Url.IsAbsoluteUri))
                     {
-                        var resp = await HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, p.Url));
+                        var resp = await HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, post.Url));
                         if (!resp.Content.Headers.ContentType.MediaType.StartsWith("text"))
                         {
-                            builder.WithImageUrl(p.Url.ToString());
+                            builder.WithImageUrl(post.Url.ToString());
                         }
-                        else if (p.Thumbnail.IsAbsoluteUri)
+                        else if (post.Thumbnail.IsAbsoluteUri)
                         {
-                            builder.WithThumbnailUrl(p.Thumbnail.ToString());
-                            builder.AddField("Url", p.Url.ToString());
+                            builder.WithThumbnailUrl(post.Thumbnail.ToString());
+                            builder.AddField("Url", post.Url.ToString());
                         }
                         else
                         {
-                            await ctx.ReplyAsync(p.Shortlink.ToString());
+                            await ctx.ReplyAsync(post.Shortlink.ToString());
                             return;
                         }
                     }
                     else
                     {
-                        builder.AddField("Url", p.Url.ToString());
+                        builder.AddField("Url", post.Url.ToString());
                     }
 
                     await ctx.ReplyAsync(emb: builder.Build());

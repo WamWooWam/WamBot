@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Discord;
 
 namespace WamBotRewrite.Data
@@ -47,5 +48,21 @@ namespace WamBotRewrite.Data
 
         [NotMapped]
         public ICollection<Transaction> Transactions => TransactionsSent.Concat(TransactionsRecieved).OrderBy(t => t.TimeStamp).ToList();
+    }
+
+    public class UserFactory : IFactory<User>
+    {
+        public static UserFactory Instance { get; private set; } = new UserFactory();
+
+        public User Create(object key)
+        {
+            var iuser = Program.Client.GetUser((ulong)key);
+            return new User(iuser);
+        }
+
+        public Task<User> CreateAsync(object key)
+        {
+            return Task.FromResult(Create(key));
+        }
     }
 }

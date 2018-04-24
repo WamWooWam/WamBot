@@ -35,8 +35,8 @@ namespace WamBotRewrite.Commands
                 {
                     var totalAmount = amount + (amount * 0.02m);
                     var send = ctx.UserData;
-                    var recieve = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, () => new User(user));
-                    var bot = await GetBotUserAsync(ctx);
+                    var recieve = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, UserFactory.Instance);
+                    var bot = ctx.DbContext.BotUser.Value;
 
                     if ((send.Balance - totalAmount) >= 0)
                     {
@@ -84,8 +84,8 @@ namespace WamBotRewrite.Commands
         {
             if (amount > 0)
             {
-                var recieve = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, () => new User(user));
-                var bot = await GetBotUserAsync(ctx);
+                var recieve = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, UserFactory.Instance);
+                var bot = ctx.DbContext.BotUser.Value;
 
                 recieve.Balance -= amount;
                 bot.Balance += amount;
@@ -140,7 +140,7 @@ namespace WamBotRewrite.Commands
         [Command("Account Details", "Gives details about a specific user's account.", new[] { "ac-details" })]
         public async Task AccountDetails(CommandContext ctx, IUser user)
         {
-            var d = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, () => new User(user));
+            var d = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, UserFactory.Instance);
 
             StringBuilder builder = new StringBuilder();
             builder.AppendLine("```");
@@ -163,8 +163,8 @@ namespace WamBotRewrite.Commands
         [Command("Set Balance", "Sets a user's current balance.", new[] { "setbal" })]
         public async Task SetBalance(CommandContext ctx, IUser user, decimal bal)
         {
-            var bot = await GetBotUserAsync(ctx);
-            var d = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, () => new User(user));
+            var bot = ctx.DbContext.BotUser.Value;
+            var d = await ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)user.Id, UserFactory.Instance);
 
             Transaction t = new Transaction(bot, d, bal - d.Balance, "Hax");
             d.TransactionsRecieved.Add(t);
@@ -207,7 +207,7 @@ namespace WamBotRewrite.Commands
         {
             using (WamBotContext ctx = new WamBotContext())
             {
-                User bot = ctx.Users.GetOrCreate(ctx, (long)Program.Client.CurrentUser.Id, () => new User(Program.Client.CurrentUser) { Balance = int.MaxValue / 8 });
+                User bot = ctx.BotUser.Value;
 
                 foreach (var p in _store)
                 {
@@ -260,11 +260,6 @@ namespace WamBotRewrite.Commands
                 ctx.DbContext.Users.Update(send);
                 ctx.DbContext.Users.Update(recieve);
             }
-        }
-
-        private static Task<User> GetBotUserAsync(CommandContext ctx)
-        {
-            return ctx.DbContext.Users.GetOrCreateAsync(ctx.DbContext, (long)ctx.Client.CurrentUser.Id, () => new User(ctx.Client.CurrentUser) { Balance = int.MaxValue / 8 });
         }
     }
 }
