@@ -9,10 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00586" />
-    <PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.0-nightly-00586" />
-    <PackageReference Include="DSharpPlus.Interactivity" Version="4.0.0-nightly-00586" />
-    <PackageReference Include="DSharpPlus.VoiceNext" Version="4.0.0-nightly-00586" />
+    <PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00626" />
+    <PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.0-nightly-00626" />
+    <PackageReference Include="DSharpPlus.Interactivity" Version="4.0.0-nightly-00626" />
+    <PackageReference Include="DSharpPlus.VoiceNext" Version="4.0.0-nightly-00626" />
     <PackageReference Include="Markdig" Version="0.17.1" />
     <PackageReference Include="Markdig.Wpf" Version="0.3.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.0.0" />
@@ -24,31 +24,17 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="3.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="3.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.0.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.18362.2005" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="3.0.1" />
     <PackageReference Include="SkiaSharp" Version="1.68.0" />
+    <PackageReference Include="System.Runtime.InteropServices.WindowsRuntime" Version="4.3.0" />
+    <PackageReference Include="System.Runtime.WindowsRuntime" Version="4.6.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Scripting\Microsoft.Scripting.csproj" />
     <ProjectReference Include="..\WamWooWam.Core\WamWooWam.Core.csproj" />
     <ProjectReference Include="..\WamWooWam.Wpf\WamWooWam.Wpf.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="PresentationFramework.Aero2" />
-    <Reference Include="System.Runtime.InteropServices.WindowsRuntime">
-      <HintPath>\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Runtime.InteropServices.WindowsRuntime.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.WindowsRuntime">
-      <HintPath>\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Runtime.WindowsRuntime.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.WindowsRuntime.UI.Xaml">
-      <HintPath>\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Runtime.WindowsRuntime.UI.Xaml.dll</HintPath>
-    </Reference>
-    <Reference Include="Windows">
-      <HintPath>\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.18362.0\Windows.winmd</HintPath>
-      <IsWinMDFile>true</IsWinMDFile>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

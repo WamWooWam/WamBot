@@ -111,6 +111,12 @@ namespace WamBot.Commands
                     result = await engine.RecognizeAsync(softwareBitmap);
                 }
 
+                if (!result.Lines.Any())
+                {
+                    await ctx.RespondAsync("OCR returned no text!");
+                    return;
+                }
+
                 // divide the text into blocks
                 // this looks complex but in reality it just looks at the distance between
                 // the left of each line and the previous one, and splits if they're too far away
@@ -147,7 +153,7 @@ namespace WamBot.Commands
                 }
 
                 ocrBlocks.Add(current);
-                
+
                 // setup drawing context
                 var imageInfo = new SKImageInfo(softwareBitmap.PixelWidth, softwareBitmap.PixelHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
                 using var surface = SKSurface.Create(imageInfo);
@@ -193,7 +199,7 @@ namespace WamBot.Commands
                         text.TextSize = textSize;
                         canvas.DrawText(l.Text, x, y, text);
                     }
-                }                
+                }
 
                 canvas.Flush();
 
